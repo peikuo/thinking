@@ -1,0 +1,4 @@
+{
+  "openai": "Error calling OpenAI API: 500: Request timed out.",
+  "grok": "Error calling Grok API: 500: Request timed out."
+}
