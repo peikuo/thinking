@@ -162,7 +162,8 @@ If you encounter issues with the configuration:
 To customize the configuration for an environment:
 
 1. Edit your `.env` file or set environment variables directly in your system
-2. Reload the configuration using the `/api/reload-config` endpoint or by restarting the server
+2. Alternatively, you can create configuration files in the `.config/` directory (which is gitignored for security)
+3. Reload the configuration using the `/api/reload-config` endpoint or by restarting the server
 
 ## Environment-Specific Configurations
 

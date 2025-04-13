@@ -1,6 +1,8 @@
-# Environment variables
+# Environment variables and configuration
 .env
 *.env
+.config/
+backend/.config/
 
 # Python
 __pycache__/
