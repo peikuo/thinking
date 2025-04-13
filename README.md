@@ -2,6 +2,8 @@
 
 ![Thinking Logo](frontend/public/thinking-logo.png)
 
+[中文文档](README_CN.md) | [English](README.md)
+
 Thinking is an interactive web platform that allows users to compare responses from multiple leading AI models side by side. By entering a single prompt, users can simultaneously query OpenAI, Grok, Qwen, and DeepSeek models, and receive a comprehensive summary highlighting similarities, differences, key insights, and limitations across the responses.
 
 ## Why Thinking?
