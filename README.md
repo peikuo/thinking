@@ -143,8 +143,12 @@ Thinking is an interactive web platform that allows users to compare responses f
 - `POST /api/reload-config` - Reload configuration from environment variables
 - `POST /api/switch-environment/{env}` - Switch between dev/test/prd environments
 
+### Logging Endpoints
+- `GET /api/logs/level` - Get current log level
+- `POST /api/logs/level/{level}` - Set log level (debug, info, warning, error, critical)
+
 ### Utility Endpoints
-- `GET /api/health` - Health check endpoint
+- `GET /api/health` - Health check endpoint with environment and log level information
 
 ## Technologies Used
 
@@ -162,6 +166,7 @@ Thinking is an interactive web platform that allows users to compare responses f
 - **Language**: Python 3.10+
 - **HTTP Client**: httpx for async requests
 - **Environment Management**: python-dotenv
+- **Logging System**: Comprehensive logging with rotation and archiving
 - **API Integration**: OpenAI, Grok (X.AI), Qwen (Alibaba), DeepSeek
 
 ## Screenshots

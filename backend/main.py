@@ -6,14 +6,19 @@ import httpx
 import os
 import asyncio
 import json
+import time
 from openai import AsyncOpenAI
 
 # Import environment-based configuration module
 from env_config import (
     get_api_key, get_api_url, get_model, get_server_config,
-    get_current_env, switch_environment, 
+    get_current_env, switch_environment, get_log_level,
     ENV_DEV, ENV_TEST, ENV_PRD
 )
+
+# Import custom logging and middleware
+from utils.logger import logger, archive_old_logs
+from utils.middleware import RequestLoggingMiddleware
 
 app = FastAPI(title="Thinking API", description="API for the Thinking project")
 
@@ -25,6 +30,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# Initialize logging system
+logger.info(f"Starting Thinking API in {get_current_env()} environment with log level {get_log_level()}")
+
+# Archive old logs on startup
+try:
+    archive_old_logs()
+    logger.info("Successfully archived old logs")
+except Exception as e:
+    logger.warning(f"Failed to archive old logs: {str(e)}")
 
 # Get API keys and URLs from configuration
 OPENAI_API_KEY = get_api_key("openai")
@@ -569,7 +587,37 @@ async def summary(request: SummaryRequest):
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok"}
+    logger.info("Health check endpoint called")
+    return {
+        "status": "ok",
+        "environment": get_current_env(),
+        "log_level": get_log_level(),
+        "timestamp": time.time()
+    }
+
+@app.get("/api/logs/level")
+async def get_current_log_level():
+    """Get the current log level"""
+    logger.info("Log level endpoint called")
+    return {"log_level": get_log_level()}
+
+@app.post("/api/logs/level/{level}")
+async def set_log_level(level: str):
+    """Set the log level"""
+    valid_levels = ["debug", "info", "warning", "error", "critical"]
+    
+    if level.lower() not in valid_levels:
+        logger.warning(f"Invalid log level requested: {level}")
+        raise HTTPException(status_code=400, detail=f"Invalid log level. Must be one of: {', '.join(valid_levels)}")
+    
+    # Set the environment variable
+    os.environ["LOG_LEVEL"] = level.lower()
+    
+    # Update the logger
+    logger.setLevel(level.upper())
+    logger.info(f"Log level changed to {level}")
+    
+    return {"log_level": level.lower(), "status": "updated"}
 
 # Configuration endpoints
 @app.post("/api/reload-config")

@@ -56,7 +56,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     renameConversation,
     addUserMessage,
     updateModelResponses,
-    updateSummary
+    updateSummary,
+    removeLastAssistantMessage
   } = useConversations();
   
   const { apiKeys, saveApiKeys } = useApiKeys();
@@ -110,6 +111,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           title: t('error'),
           description: t('failedToGetResponses'),
         });
+        
+        // Remove the empty assistant message when there's an error
+        removeLastAssistantMessage(conversationId);
       }
     } catch (err) {
       console.error("Error in handleSubmitPrompt:", err);
@@ -118,6 +122,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         title: t('error'),
         description: t('failedToGetResponses'),
       });
+      
+      // Remove the empty assistant message when there's an error
+      removeLastAssistantMessage(conversationId);
     }
   };
   

@@ -213,6 +213,30 @@ export function useConversations() {
     });
   }, []);
 
+  // New function to remove the last assistant message when an API call fails
+  const removeLastAssistantMessage = useCallback((conversationId: string) => {
+    setConversations(prev => {
+      return prev.map(conv => {
+        if (conv.id === conversationId) {
+          // Get all messages except the last assistant message
+          const messages = [...conv.messages];
+          
+          // Check if the last message is an assistant message
+          if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+            // Remove the last message (assistant)
+            messages.pop();
+          }
+          
+          return {
+            ...conv,
+            messages
+          };
+        }
+        return conv;
+      });
+    });
+  }, []);
+
   return {
     conversations,
     activeConversationId,
@@ -223,6 +247,7 @@ export function useConversations() {
     addUserMessage,
     updateModelResponses,
     updateSummary,
-    renameConversation
+    renameConversation,
+    removeLastAssistantMessage
   };
 }

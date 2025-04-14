@@ -14,6 +14,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Log level constants
+LOG_LEVEL_DEBUG = "debug"
+LOG_LEVEL_INFO = "info"
+LOG_LEVEL_WARNING = "warning"
+LOG_LEVEL_ERROR = "error"
+LOG_LEVEL_CRITICAL = "critical"
+
 # Environment constants
 ENV_DEV = "dev"
 ENV_TEST = "test"
@@ -163,3 +170,20 @@ def get_current_env() -> str:
         The current environment
     """
     return get_environment()
+
+
+def get_log_level() -> str:
+    """
+    Get the log level from environment variables.
+    
+    Returns:
+        The log level (debug, info, warning, error, critical)
+    """
+    log_level = os.environ.get("LOG_LEVEL", LOG_LEVEL_INFO).lower()
+    valid_levels = [LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR, LOG_LEVEL_CRITICAL]
+    
+    if log_level not in valid_levels:
+        logger.warning(f"Invalid log level: {log_level}, defaulting to {LOG_LEVEL_INFO}")
+        return LOG_LEVEL_INFO
+    
+    return log_level

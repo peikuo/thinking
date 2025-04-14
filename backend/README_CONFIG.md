@@ -33,6 +33,10 @@ The following environment variables are supported:
 - `QWEN_API_URL`: Qwen API URL. Default: `https://dashscope.aliyuncs.com/compatible-mode/v1`
 - `DEEPSEEK_API_URL`: DeepSeek API URL. Default: `https://api.deepseek.com`
 
+### Logging Configuration
+
+- `LOG_LEVEL`: Sets the logging verbosity level. Values: `debug`, `info`, `warning`, `error`, `critical`. Default: `info`
+
 ### Models (optional)
 
 - `OPENAI_MODEL`: OpenAI model to use. Default: `gpt-4o-mini`
@@ -108,6 +112,41 @@ curl -X POST http://localhost:8000/api/switch-environment/prd
 }
 ```
 
+## Logging System
+
+The backend includes a comprehensive logging system that provides detailed information about application operations, API requests, and errors.
+
+### Log Types
+
+- **Application Logs**: General information about application operations
+- **Request Logs**: Detailed information about API requests in JSON format
+- **Error Logs**: Detailed information about errors with stack traces
+
+### Log Directories
+
+Logs are stored in the following directories:
+
+- `backend/logs/app`: Application logs
+- `backend/logs/requests`: API request logs
+- `backend/logs/errors`: Error logs
+- `backend/logs/archived`: Archived logs
+
+### Log Rotation
+
+Logs are automatically rotated daily and archived after 30 days. The archiving process compresses old logs to save disk space.
+
+### Log Levels
+
+The logging system supports the following log levels, in order of increasing severity:
+
+- `debug`: Detailed debugging information
+- `info`: General information messages
+- `warning`: Warning messages
+- `error`: Error messages
+- `critical`: Critical error messages
+
+You can set the log level using the `LOG_LEVEL` environment variable or through the API endpoints.
+
 ## API Endpoints for Configuration Management
 
 The following endpoints are available for managing configuration:
@@ -125,6 +164,22 @@ Returns the current environment and server configuration.
 ```
 POST /api/reload-config
 ```
+
+### Get Current Log Level
+
+```
+GET /api/logs/level
+```
+
+Returns the current log level.
+
+### Set Log Level
+
+```
+POST /api/logs/level/{level}
+```
+
+Sets the log level. The `level` parameter must be one of: `debug`, `info`, `warning`, `error`, `critical`.
 
 Reloads the configuration from environment variables. This is useful if you've updated your `.env` file or system environment variables and want to apply the changes without restarting the server.
 

@@ -141,8 +141,12 @@ Thinking 是一个交互式网络平台，允许用户并排比较多个领先 A
 - `POST /api/reload-config` - 从环境变量重新加载配置
 - `POST /api/switch-environment/{env}` - 在 dev/test/prd 环境之间切换
 
+### 日志端点
+- `GET /api/logs/level` - 获取当前日志级别
+- `POST /api/logs/level/{level}` - 设置日志级别（debug、info、warning、error、critical）
+
 ### 实用端点
-- `GET /api/health` - 健康检查端点
+- `GET /api/health` - 带有环境和日志级别信息的健康检查端点
 
 ## 使用的技术
 
@@ -160,6 +164,7 @@ Thinking 是一个交互式网络平台，允许用户并排比较多个领先 A
 - **语言**：Python 3.10+
 - **HTTP 客户端**：用于异步请求的 httpx
 - **环境管理**：python-dotenv
+- **日志系统**：全面的日志系统，支持日志轮替和归档
 - **API 集成**：OpenAI、Grok (X.AI)、Qwen (阿里巴巴)、DeepSeek
 
 ## 截图
