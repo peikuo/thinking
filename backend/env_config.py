@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
         "deepseek": "https://api.deepseek.com"
     },
     "models": {
-        "openai": "gpt-4o-mini",
+        "openai": "gpt-4-1106-preview",  # gpt-4.1 mini
         "grok": "grok-2-latest",
         "qwen": "qwen-plus",
         "deepseek": "deepseek-chat"

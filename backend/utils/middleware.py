@@ -8,7 +8,7 @@ including request logging, error handling, and more.
 import time
 import json
 from fastapi import Request, Response
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.types import ASGIApp
 from typing import Callable, Dict, Any, Optional
