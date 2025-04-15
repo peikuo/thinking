@@ -2,6 +2,7 @@ import React from 'react';
 import AppHeader from '@/components/AppHeader';
 import ConversationHistorySidebar from '@/components/ConversationHistorySidebar';
 import MainContent from '@/components/MainContent';
+import ScrollButton from '@/components/ScrollButton';
 import { Conversation } from '@/hooks/useConversations';
 import { ConversationMessage } from '@/types/models';
 
@@ -59,6 +60,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           onSubmit={onSubmitPrompt}
         />
       </div>
+      <ScrollButton />
     </div>
   );
 };
