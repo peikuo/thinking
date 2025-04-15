@@ -166,16 +166,39 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    ```
 
 3. **Configure the Frontend**:
-   Update the API base URL in `src/config/api-config.ts` to point to your backend:
+   Update the API endpoints in `src/config/api-config.ts` to point to your backend:
    ```bash
    nano src/config/api-config.ts
    ```
    
-   Change the `baseUrl` to match your domain or IP:
+   Modify the endpoints to use your backend API:
    ```typescript
-   export const baseUrl = process.env.NODE_ENV === 'production'
-     ? 'https://your-domain.com/api'  // Replace with your domain
-     : 'http://localhost:8000/api';
+   const apiConfig: ApiConfig = {
+     endpoints: {
+       openai: "https://your-domain.com/api/chat/openai",  // Replace with your domain
+       grok: "https://your-domain.com/api/chat/grok",     // Replace with your domain
+       qwen: "https://your-domain.com/api/chat/qwen",     // Replace with your domain
+       deepseek: "https://your-domain.com/api/chat/deepseek" // Replace with your domain
+     },
+     timeouts: {
+       default: 30000 // 30 seconds
+     }
+   };
+   ```
+   
+   For local development, you can use:
+   ```typescript
+   const apiConfig: ApiConfig = {
+     endpoints: {
+       openai: "http://localhost:8000/api/chat/openai",
+       grok: "http://localhost:8000/api/chat/grok",
+       qwen: "http://localhost:8000/api/chat/qwen",
+       deepseek: "http://localhost:8000/api/chat/deepseek"
+     },
+     timeouts: {
+       default: 30000 // 30 seconds
+     }
+   };
    ```
 
 4. **Build the Frontend**:

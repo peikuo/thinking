@@ -19,6 +19,7 @@ from env_config import (
 # Import custom logging and middleware
 from utils.logger import logger, archive_old_logs
 from utils.middleware import RequestLoggingMiddleware
+from utils.model_prompts import get_model_prompt, get_summary_prompt
 
 app = FastAPI(title="Thinking API", description="API for the Thinking project")
 
@@ -58,6 +59,7 @@ DEEPSEEK_API_URL = get_api_url("deepseek")
 
 # Default timeout for API calls (in seconds)
 DEFAULT_TIMEOUT = 60.0
+MAX_RETRIES_COUNT = 6
 
 # Request models
 class Message(BaseModel):
@@ -76,17 +78,28 @@ class SummaryRequest(BaseModel):
     stream: Optional[bool] = True
 
 # Helper functions for API calls
-async def call_openai(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False):
+async def call_openai(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
     # Use user-provided key if available, otherwise use environment variable
     key_to_use = api_key or OPENAI_API_KEY
     
     if not key_to_use:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
+    # Get the system prompt for OpenAI in the specified language
+    system_prompt = get_model_prompt("openai", language)
+    
+    # Add system prompt if not already present
+    if not any(msg.get("role") == "system" for msg in messages):
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ] + messages
+    
     print("openai trace: ", messages)
     try:
         # Create an OpenAI client with the API key
         client = AsyncOpenAI(
             api_key=key_to_use,
+            max_retries=MAX_RETRIES_COUNT
             # Use the default base URL for OpenAI
         )
         
@@ -143,18 +156,21 @@ async def call_openai(messages: List[Dict[str, str]], api_key: str = None, strea
             detail=f"OpenAI API error: {str(e)}"
         )
 
-async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False):
+async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
     # Use user-provided key if available, otherwise use environment variable
     key_to_use = api_key or GROK_API_KEY
     print("grok trace: ", messages)
     if not key_to_use:
         raise HTTPException(status_code=500, detail="Grok API key not configured")
     
+    # Get the system prompt for Grok in the specified language
+    system_prompt = get_model_prompt("grok", language)
+    
     # Add system prompt for Grok
     grok_messages = [
         {
             "role": "system",
-            "content": "你是由xAI创建的Grok 3，一个专为问答设计的AI助手。你的目标是提供清晰、准确且有帮助的回答，以满足用户的问题或需求。以下是你的指导原则：\n\n以简洁、自然的语言回答问题，除非用户要求详细解释。\n如果问题含糊不清，礼貌地请求澄清，并提供可能的解释方向。\n根据需要利用你的知识和分析能力，确保回答基于事实和逻辑。\n如果问题涉及特定数据（如X用户资料、帖子、链接或上传内容），仅在用户明确要求时使用你的附加工具进行分析。\n如果需要更多信息，可以搜索网络或X上的帖子，但优先使用你的现有知识。\n如果用户似乎想要生成图像，询问确认，而不是直接生成。\n对于敏感问题（如涉及死亡或惩罚），说明你作为AI无法做出此类判断。\n当前日期是2025年4月3日，仅在用户询问时提及。\n保持中立，避免主观判断或偏见，尤其是关于在线信息真伪的评价。\n以友好、专业的语气与用户互动，始终以提供最大价值为目标。"
+            "content": system_prompt
         }
     ] + messages
     
@@ -162,7 +178,8 @@ async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream:
         # Create an OpenAI client with the API key and X.AI base URL
         client = AsyncOpenAI(
             api_key=key_to_use,
-            base_url=GROK_API_URL
+            base_url=GROK_API_URL,
+            max_retries=MAX_RETRIES_COUNT
         )
         
         # Make the API call using the client
@@ -218,20 +235,25 @@ async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream:
             detail=f"Grok API error: {str(e)}"
         )
 
-async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False):
+async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
     # Use user-provided key if available, otherwise use environment variable
     key_to_use = api_key or QWEN_API_KEY
     
     if not key_to_use:
         raise HTTPException(status_code=500, detail="Qwen API key not configured")
     
+    # Get the system prompt for Qwen in the specified language
+    system_prompt = get_model_prompt("qwen", language)
+    
     # Convert messages to Qwen format
-    prompt = ""
+    prompt = f"System: {system_prompt}\n"
     for message in messages:
         if message["role"] == "user":
             prompt += f"Human: {message['content']}\n"
         elif message["role"] == "assistant":
             prompt += f"Assistant: {message['content']}\n"
+        elif message["role"] == "system" and message != messages[0]:  # Skip if it's the first message (we already added our system prompt)
+            prompt += f"System: {message['content']}\n"
     
     prompt += "Assistant: "
     
@@ -239,7 +261,8 @@ async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream:
         # Create an OpenAI client with the API key and Qwen base URL
         client = AsyncOpenAI(
             api_key=key_to_use,
-            base_url=QWEN_API_URL
+            base_url=QWEN_API_URL,
+            max_retries=MAX_RETRIES_COUNT
         )
         
         # Make the API call using the client with a custom completion format
@@ -295,18 +318,28 @@ async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream:
             detail=f"Qwen API error: {str(e)}"
         )
 
-async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False):
+async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
     # Use user-provided key if available, otherwise use environment variable
     key_to_use = api_key or DEEPSEEK_API_KEY
     
     if not key_to_use:
         raise HTTPException(status_code=500, detail="DeepSeek API key not configured")
     
+    # Get the system prompt for DeepSeek in the specified language
+    system_prompt = get_model_prompt("deepseek", language)
+    
+    # Add system prompt if not already present
+    if not any(msg.get("role") == "system" for msg in messages):
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ] + messages
+    
     try:
         # Create an OpenAI client with the API key and DeepSeek base URL
         client = AsyncOpenAI(
             api_key=key_to_use,
-            base_url=DEEPSEEK_API_URL
+            base_url=DEEPSEEK_API_URL,
+            max_retries=MAX_RETRIES_COUNT
         )
         
         # Make the API call using the client
@@ -380,61 +413,8 @@ async def generate_summary(responses: Dict[str, str], question: str, api_key: st
     # Use user-provided key if available, otherwise use environment variable
     key_to_use = api_key or DEEPSEEK_API_KEY
     
-    # Create prompts for different languages
-    prompts = {
-        "en": f"""
-        Analyze and summarize the responses from four different AI models to the following question:
-        
-        Question: {question}
-        
-        Here are the responses:
-        
-        OpenAI: {responses.get('openai', 'No response')}
-        
-        Grok: {responses.get('grok', 'No response')}
-        
-        Qwen: {responses.get('qwen', 'No response')}
-        
-        DeepSeek: {responses.get('deepseek', 'No response')}
-        
-        Provide a factual, objective summary that includes:
-        1. Common points shared by multiple models
-        2. Differences in their approaches or conclusions
-        3. Key information presented across the responses
-        4. Areas where models provide complementary information
-        5. Any significant disagreements between models
-        
-        Focus solely on analyzing the content of the responses without adding your own opinions or subjective judgments. Format your response in clear sections with headings.
-        """,
-        
-        "zh": f"""
-        分析并总结四个不同AI模型对以下问题的回答：
-        
-        问题：{question}
-        
-        以下是各模型的回答：
-        
-        OpenAI：{responses.get('openai', '无回应')}
-        
-        Grok：{responses.get('grok', '无回应')}
-        
-        Qwen：{responses.get('qwen', '无回应')}
-        
-        DeepSeek：{responses.get('deepseek', '无回应')}
-        
-        请提供一个客观、事实性的总结，包括：
-        1. 多个模型共同提到的观点
-        2. 它们在方法或结论上的差异
-        3. 各回答中呈现的关键信息
-        4. 模型提供互补信息的领域
-        5. 模型之间存在的任何重大分歧
-        
-        请仅关注分析回答的内容，不要添加自己的观点或主观判断。请以清晰的章节和标题格式化您的回答。
-        """
-    }
-    
-    # Use the prompt for the specified language, default to English if not available
-    prompt = prompts.get(language, prompts["en"])
+    # Get the summary prompt for the specified language
+    prompt = get_summary_prompt(question, responses, language)
     
     messages = [{"role": "user", "content": prompt}]
     
@@ -505,7 +485,7 @@ async def chat_openai(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_openai_key = decode_api_key(req, "X-OpenAI-API-Key")
-        return await call_openai(messages, user_openai_key, stream=request.stream)
+        return await call_openai(messages, user_openai_key, stream=request.stream, language=request.language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -514,7 +494,7 @@ async def chat_grok(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_grok_key = decode_api_key(req, "X-Grok-API-Key")
-        return await call_grok(messages, user_grok_key, stream=request.stream)
+        return await call_grok(messages, user_grok_key, stream=request.stream, language=request.language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -523,7 +503,7 @@ async def chat_qwen(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_qwen_key = decode_api_key(req, "X-Qwen-API-Key")
-        return await call_qwen(messages, user_qwen_key, stream=request.stream)
+        return await call_qwen(messages, user_qwen_key, stream=request.stream, language=request.language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -532,7 +512,7 @@ async def chat_deepseek(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
-        return await call_deepseek(messages, user_deepseek_key, stream=request.stream)
+        return await call_deepseek(messages, user_deepseek_key, stream=request.stream, language=request.language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

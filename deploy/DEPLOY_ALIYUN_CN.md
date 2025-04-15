@@ -166,16 +166,39 @@
    ```
 
 3. **配置前端**：
-   更新 `src/config/api-config.ts` 中的 API 基础 URL，指向您的后端：
+   更新 `src/config/api-config.ts` 中的 API 端点，指向您的后端：
    ```bash
    nano src/config/api-config.ts
    ```
    
-   将 `baseUrl` 更改为匹配您的域名或 IP：
+   修改端点以使用您的后端 API：
    ```typescript
-   export const baseUrl = process.env.NODE_ENV === 'production'
-     ? 'https://your-domain.com/api'  // 替换为您的域名
-     : 'http://localhost:8000/api';
+   const apiConfig: ApiConfig = {
+     endpoints: {
+       openai: "https://your-domain.com/api/chat/openai",  // 替换为您的域名
+       grok: "https://your-domain.com/api/chat/grok",     // 替换为您的域名
+       qwen: "https://your-domain.com/api/chat/qwen",     // 替换为您的域名
+       deepseek: "https://your-domain.com/api/chat/deepseek" // 替换为您的域名
+     },
+     timeouts: {
+       default: 30000 // 30秒
+     }
+   };
+   ```
+   
+   对于本地开发，您可以使用：
+   ```typescript
+   const apiConfig: ApiConfig = {
+     endpoints: {
+       openai: "http://localhost:8000/api/chat/openai",
+       grok: "http://localhost:8000/api/chat/grok",
+       qwen: "http://localhost:8000/api/chat/qwen",
+       deepseek: "http://localhost:8000/api/chat/deepseek"
+     },
+     timeouts: {
+       default: 30000 // 30秒
+     }
+   };
    ```
 
 4. **构建前端**：

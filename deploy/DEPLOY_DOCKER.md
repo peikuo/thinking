@@ -231,18 +231,42 @@ nano .env.docker
 
 ### 3. Update Frontend API Configuration
 
-Update the API base URL in the frontend configuration:
+Update the API endpoints in the frontend configuration:
 
 ```bash
 nano frontend/src/config/api-config.ts
 ```
 
-Change the `baseUrl` to:
+Modify the endpoints to use the Nginx proxy:
 
 ```typescript
-export const baseUrl = process.env.NODE_ENV === 'production'
-  ? '/api'  // This will be proxied through Nginx
-  : 'http://localhost:8000/api';
+const apiConfig: ApiConfig = {
+  endpoints: {
+    openai: "/api/chat/openai",     // This will be proxied through Nginx
+    grok: "/api/chat/grok",        // This will be proxied through Nginx
+    qwen: "/api/chat/qwen",        // This will be proxied through Nginx
+    deepseek: "/api/chat/deepseek" // This will be proxied through Nginx
+  },
+  timeouts: {
+    default: 30000 // 30 seconds
+  }
+};
+```
+
+For local development, you can use:
+
+```typescript
+const apiConfig: ApiConfig = {
+  endpoints: {
+    openai: "http://localhost:8000/api/chat/openai",
+    grok: "http://localhost:8000/api/chat/grok",
+    qwen: "http://localhost:8000/api/chat/qwen",
+    deepseek: "http://localhost:8000/api/chat/deepseek"
+  },
+  timeouts: {
+    default: 30000 // 30 seconds
+  }
+};
 ```
 
 ### 4. Build and Start the Services
