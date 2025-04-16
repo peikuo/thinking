@@ -175,10 +175,10 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    ```typescript
    const apiConfig: ApiConfig = {
      endpoints: {
-       openai: "https://your-domain.com/api/chat/openai",  // Replace with your domain
-       grok: "https://your-domain.com/api/chat/grok",     // Replace with your domain
-       qwen: "https://your-domain.com/api/chat/qwen",     // Replace with your domain
-       deepseek: "https://your-domain.com/api/chat/deepseek" // Replace with your domain
+       openai: "http://localhost:8000/api/chat/openai",  // Replace with your domain
+       grok: "http://localhost:8000/api/chat/grok",     // Replace with your domain
+       qwen: "http://localhost:8000/api/chat/qwen",     // Replace with your domain
+       deepseek: "http://localhost:8000/api/chat/deepseek" // Replace with your domain
      },
      timeouts: {
        default: 30000 // 30 seconds
@@ -211,8 +211,14 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
 ## Setting Up Nginx
 
 1. **Create an Nginx Configuration File**:
+   For Ubuntu/Debian:
    ```bash
    sudo nano /etc/nginx/sites-available/thinking
+   ```
+   For Alibaba Cloud Linux:
+   ```bash
+   sudo mkdir -p /etc/nginx/conf.d
+   sudo nano /etc/nginx/conf.d/thinking.conf
    ```
 
 2. **Add the Following Configuration**:
@@ -244,8 +250,14 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    ```
 
 3. **Enable the Site**:
+   For Ubuntu/Debian:
    ```bash
    sudo ln -s /etc/nginx/sites-available/thinking /etc/nginx/sites-enabled/
+   sudo nginx -t  # Test the configuration
+   sudo systemctl restart nginx
+   ```
+   For Alibaba Cloud Linux:
+   ```bash
    sudo nginx -t  # Test the configuration
    sudo systemctl restart nginx
    ```

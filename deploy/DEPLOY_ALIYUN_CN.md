@@ -211,8 +211,14 @@
 ## 设置 Nginx
 
 1. **创建 Nginx 配置文件**：
+   对于 Ubuntu/Debian：
    ```bash
    sudo nano /etc/nginx/sites-available/thinking
+   ```
+   对于阿里云 Linux：
+   ```bash
+   sudo mkdir -p /etc/nginx/conf.d
+   sudo nano /etc/nginx/conf.d/thinking.conf
    ```
 
 2. **添加以下配置**：
@@ -244,8 +250,14 @@
    ```
 
 3. **启用站点**：
+   对于 Ubuntu/Debian：
    ```bash
    sudo ln -s /etc/nginx/sites-available/thinking /etc/nginx/sites-enabled/
+   sudo nginx -t  # 测试配置
+   sudo systemctl restart nginx
+   ```
+   对于阿里云 Linux：
+   ```bash
    sudo nginx -t  # 测试配置
    sudo systemctl restart nginx
    ```
