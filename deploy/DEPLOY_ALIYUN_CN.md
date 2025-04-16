@@ -213,12 +213,12 @@
 1. **创建 Nginx 配置文件**：
    对于 Ubuntu/Debian：
    ```bash
-   sudo nano /etc/nginx/sites-available/thinking
+   sudo vi /etc/nginx/sites-available/thinking
    ```
    对于阿里云 Linux：
    ```bash
    sudo mkdir -p /etc/nginx/conf.d
-   sudo nano /etc/nginx/conf.d/thinking.conf
+   sudo vi /etc/nginx/conf.d/thinking.conf
    ```
 
 2. **添加以下配置**：
@@ -264,7 +264,20 @@
 
 ## 配置 SSL
 
-1. **使用 Certbot 设置 SSL**（如果您有域名）：
+1. **安装 Certbot**（如果尚未安装）：
+   对于 Ubuntu/Debian：
+   ```bash
+   sudo apt update
+   sudo apt install -y certbot python3-certbot-nginx
+   ```
+   
+   对于阿里云 Linux：
+   ```bash
+   sudo yum install -y epel-release
+   sudo yum install -y certbot python3-certbot-nginx
+   ```
+
+2. **使用 Certbot 设置 SSL**（如果您有域名）：
    ```bash
    sudo certbot --nginx -d your-domain.com
    ```

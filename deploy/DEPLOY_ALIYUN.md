@@ -218,7 +218,7 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    For Alibaba Cloud Linux:
    ```bash
    sudo mkdir -p /etc/nginx/conf.d
-   sudo nano /etc/nginx/conf.d/thinking.conf
+   sudo vi /etc/nginx/conf.d/thinking.conf
    ```
 
 2. **Add the Following Configuration**:
@@ -264,7 +264,20 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
 
 ## Configuring SSL
 
-1. **Set Up SSL with Certbot** (if you have a domain):
+1. **Install Certbot** (if not already installed):
+   For Ubuntu/Debian:
+   ```bash
+   sudo apt update
+   sudo apt install -y certbot python3-certbot-nginx
+   ```
+   
+   For Alibaba Cloud Linux:
+   ```bash
+   sudo yum install -y epel-release
+   sudo yum install -y certbot python3-certbot-nginx
+   ```
+
+2. **Set Up SSL with Certbot** (if you have a domain):
    ```bash
    sudo certbot --nginx -d your-domain.com
    ```
@@ -283,7 +296,7 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
 
 1. **Create a Systemd Service File for the Backend**:
    ```bash
-   sudo nano /etc/systemd/system/thinking-backend.service
+   sudo vi /etc/systemd/system/thinking-backend.service
    ```
 
 2. **Add the Following Configuration**:
