@@ -113,9 +113,6 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    
    # Install dependencies
    pip install -r requirements.txt
-   
-   # Install production dependencies
-   pip install gunicorn uvicorn
    ```
 
 3. **Configure Environment Variables**:
@@ -284,13 +281,103 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    
    Follow the prompts to complete the SSL setup.
 
-2. **For IP-Only Deployments**:
-   If you're using only an IP address without a domain, you can generate a self-signed certificate:
+3. **For Domain Verification Issues**:
+   If you're having trouble with the automatic Nginx verification, you can use the DNS challenge method:
+   ```bash
+   sudo certbot certonly --manual --preferred-challenges dns -d your-domain.com
+   ```
+   
+   Follow the instructions to create a TXT record at your DNS provider. For GoDaddy:
+   - Log in to your GoDaddy account
+   - Go to the DNS management for your domain
+   - Add a TXT record with host `_acme-challenge` and the value provided by Certbot
+   - Wait 10-30 minutes for DNS propagation
+   - Verify with `dig _acme-challenge.your-domain.com TXT`
+   - Continue with the Certbot process
+
+4. **For IP-Only Deployments**:
+   If you're using only an IP address without a domain, generate a self-signed certificate:
    ```bash
    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
    ```
+
+5. **Configure Nginx for SSL**:
+   Update your Nginx configuration to use SSL certificates:
+   ```bash
+   sudo vi /etc/nginx/conf.d/thinking.conf
+   ```
    
-   Then update your Nginx configuration to use the self-signed certificate.
+   For Let's Encrypt certificates:
+   ```nginx
+   # HTTP server - redirects to HTTPS
+   server {
+       listen 80;
+       listen [::]:80;
+       server_name your-domain.com your-ip-address _;
+       
+       # Redirect all HTTP requests to HTTPS
+       return 301 https://$host$request_uri;
+   }
+
+   # HTTPS server
+   server {
+       listen 443 ssl;
+       listen [::]:443 ssl;
+       server_name your-domain.com your-ip-address _;
+       
+       # SSL configuration with Let's Encrypt certificates
+       ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+       ssl_protocols TLSv1.2 TLSv1.3;
+       ssl_prefer_server_ciphers on;
+       ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+       ssl_session_cache shared:SSL:10m;
+       ssl_session_timeout 180m;
+       
+       # Frontend
+       location / {
+           root /home/thinking/thinking/frontend/dist;
+           index index.html;
+           try_files $uri $uri/ /index.html;
+       }
+       
+       # Backend API
+       location /api/ {
+           proxy_pass http://localhost:8000/;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+       
+       # ACME challenge location for Let's Encrypt renewals
+       location ~ /.well-known/acme-challenge {
+           allow all;
+           root /var/www/html;
+       }
+   }
+   ```
+   
+   For self-signed certificates, replace the SSL configuration section with:
+   ```nginx
+   # SSL configuration with self-signed certificates
+   ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+   ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+   ```
+
+6. **Set Up Automatic Certificate Renewal**:
+   ```bash
+   sudo crontab -e
+   ```
+   
+   Add this line to run the renewal check twice daily:
+   ```
+   0 0,12 * * * certbot renew --quiet
+   ```
 
 ## Setting Up Systemd Services
 
@@ -309,7 +396,8 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    User=thinking
    Group=thinking
    WorkingDirectory=/home/thinking/thinking/backend
-   Environment="PATH=/home/thinking/thinking/backend/venv/bin"
+   Environment="PATH=/home/thinking/thinking/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+   Environment="PYTHONPATH=/home/thinking/thinking/backend"
    ExecStart=/home/thinking/thinking/backend/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
    Restart=always
    
@@ -322,6 +410,75 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    sudo systemctl enable thinking-backend
    sudo systemctl start thinking-backend
    sudo systemctl status thinking-backend  # Check status
+   ```
+
+## Upgrading the Project
+
+1. **Pull Latest Changes**:
+   ```bash
+   # Switch to the thinking user
+   sudo su - thinking
+   
+   # Navigate to the project directory
+   cd ~/thinking
+   
+   # Pull the latest changes
+   git pull origin main
+   ```
+
+2. **Update Backend**:
+   ```bash
+   # Navigate to the backend directory
+   cd ~/thinking/backend
+   
+   # Activate the virtual environment
+   source venv/bin/activate
+   
+   # Install any new dependencies
+   pip install -r requirements.txt
+   
+   # Restart the backend service
+   sudo systemctl restart thinking-backend
+   ```
+
+3. **Rebuild Frontend**:
+   ```bash
+   # Navigate to the frontend directory
+   cd ~/thinking/frontend
+   
+   # Install any new dependencies
+   npm install
+   
+   # Build the frontend
+   npm run build
+   ```
+
+4. **Check for Configuration Changes**:
+   ```bash
+   # Check if there are any changes to the configuration files
+   cd ~/thinking
+   git diff --name-only HEAD@{1} HEAD | grep -E '\.env\.example|\.config'
+   ```
+   
+   If there are changes to configuration files, update your configuration accordingly.
+
+5. **Verify the Upgrade**:
+   ```bash
+   # Check backend service status
+   sudo systemctl status thinking-backend
+   
+   # Check logs for any errors
+   sudo journalctl -u thinking-backend -n 50
+   ```
+
+6. **Rollback if Necessary**:
+   ```bash
+   # If you need to rollback to a previous version
+   cd ~/thinking
+   git log --oneline  # Find the commit hash to rollback to
+   git reset --hard <commit-hash>
+   
+   # Then follow steps 2-4 to update the backend and frontend
    ```
 
 ## Monitoring and Maintenance

@@ -113,9 +113,6 @@
    
    # 安装依赖
    pip install -r requirements.txt
-   
-   # 安装生产环境依赖
-   pip install gunicorn uvicorn
    ```
 
 3. **配置环境变量**：
@@ -284,19 +281,109 @@
    
    按照提示完成 SSL 设置。
 
-2. **仅使用 IP 的部署**：
-   如果您只使用 IP 地址而没有域名，可以生成自签名证书：
+3. **域名验证问题解决**：
+   如果您在使用 Nginx 自动验证时遇到问题，可以使用 DNS 验证方式：
+   ```bash
+   sudo certbot certonly --manual --preferred-challenges dns -d your-domain.com
+   ```
+   
+   按照指示在您的 DNS 提供商创建 TXT 记录。对于 GoDaddy：
+   - 登录您的 GoDaddy 账户
+   - 进入您域名的 DNS 管理
+   - 添加一个主机名为 `_acme-challenge` 的 TXT 记录，值为 Certbot 提供的字符串
+   - 等待 10-30 分钟让 DNS 变更生效
+   - 使用 `dig _acme-challenge.your-domain.com TXT` 验证
+   - 继续 Certbot 过程
+
+4. **仅使用 IP 的部署**：
+   如果您只使用 IP 地址而没有域名，生成自签名证书：
    ```bash
    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
    ```
+
+5. **配置 Nginx 使用 SSL**：
+   更新您的 Nginx 配置以使用 SSL 证书：
+   ```bash
+   sudo vi /etc/nginx/conf.d/thinking.conf
+   ```
    
-   然后更新 Nginx 配置以使用自签名证书。
+   对于 Let's Encrypt 证书：
+   ```nginx
+   # HTTP 服务器 - 重定向到 HTTPS
+   server {
+       listen 80;
+       listen [::]:80;
+       server_name your-domain.com your-ip-address _;
+       
+       # 将所有 HTTP 请求重定向到 HTTPS
+       return 301 https://$host$request_uri;
+   }
+
+   # HTTPS 服务器
+   server {
+       listen 443 ssl;
+       listen [::]:443 ssl;
+       server_name your-domain.com your-ip-address _;
+       
+       # SSL 配置使用 Let's Encrypt 证书
+       ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+       ssl_protocols TLSv1.2 TLSv1.3;
+       ssl_prefer_server_ciphers on;
+       ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+       ssl_session_cache shared:SSL:10m;
+       ssl_session_timeout 180m;
+       
+       # 前端
+       location / {
+           root /home/thinking/thinking/frontend/dist;
+           index index.html;
+           try_files $uri $uri/ /index.html;
+       }
+       
+       # 后端 API
+       location /api/ {
+           proxy_pass http://localhost:8000/;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+       
+       # Let's Encrypt 的 ACME 验证路径
+       location ~ /.well-known/acme-challenge {
+           allow all;
+           root /var/www/html;
+       }
+   }
+   ```
+   
+   对于自签名证书，将 SSL 配置部分替换为：
+   ```nginx
+   # 使用自签名证书的 SSL 配置
+   ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+   ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+   ```
+
+6. **设置自动证书更新**：
+   ```bash
+   sudo crontab -e
+   ```
+   
+   添加以下行每天运行两次更新检查：
+   ```
+   0 0,12 * * * certbot renew --quiet
+   ```
 
 ## 设置 Systemd 服务
 
 1. **为后端创建 Systemd 服务文件**：
    ```bash
-   sudo nano /etc/systemd/system/thinking-backend.service
+   sudo vi /etc/systemd/system/thinking-backend.service
    ```
 
 2. **添加以下配置**：
@@ -309,7 +396,8 @@
    User=thinking
    Group=thinking
    WorkingDirectory=/home/thinking/thinking/backend
-   Environment="PATH=/home/thinking/thinking/backend/venv/bin"
+   Environment="PATH=/home/thinking/thinking/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+   Environment="PYTHONPATH=/home/thinking/thinking/backend"
    ExecStart=/home/thinking/thinking/backend/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
    Restart=always
    
@@ -322,6 +410,75 @@
    sudo systemctl enable thinking-backend
    sudo systemctl start thinking-backend
    sudo systemctl status thinking-backend  # 检查状态
+   ```
+
+## 项目升级
+
+1. **拉取最新变更**：
+   ```bash
+   # 切换到 thinking 用户
+   sudo su - thinking
+   
+   # 导航到项目目录
+   cd ~/thinking
+   
+   # 拉取最新变更
+   git pull origin main
+   ```
+
+2. **更新后端**：
+   ```bash
+   # 导航到后端目录
+   cd ~/thinking/backend
+   
+   # 激活虚拟环境
+   source venv/bin/activate
+   
+   # 安装新的依赖
+   pip install -r requirements.txt
+   
+   # 重启后端服务
+   sudo systemctl restart thinking-backend
+   ```
+
+3. **重建前端**：
+   ```bash
+   # 导航到前端目录
+   cd ~/thinking/frontend
+   
+   # 安装新的依赖
+   npm install
+   
+   # 构建前端
+   npm run build
+   ```
+
+4. **检查配置变更**：
+   ```bash
+   # 检查是否有配置文件的变更
+   cd ~/thinking
+   git diff --name-only HEAD@{1} HEAD | grep -E '\.env\.example|\.config'
+   ```
+   
+   如果配置文件有变更，请相应地更新您的配置。
+
+5. **验证升级**：
+   ```bash
+   # 检查后端服务状态
+   sudo systemctl status thinking-backend
+   
+   # 检查日志是否有错误
+   sudo journalctl -u thinking-backend -n 50
+   ```
+
+6. **必要时回滚**：
+   ```bash
+   # 如果需要回滚到之前的版本
+   cd ~/thinking
+   git log --oneline  # 找到要回滚到的提交哈希
+   git reset --hard <commit-hash>
+   
+   # 然后按照步骤 2-4 更新后端和前端
    ```
 
 ## 监控和维护
