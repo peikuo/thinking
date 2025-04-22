@@ -50,6 +50,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       # Deploy to Alibaba Cloud server
+      - name: List backend and frontend/dist files
+        run: |
+          echo "Backend files:"
+          ls -l backend || echo "No backend directory"
+          echo "Frontend build files:"
+          ls -l frontend/dist || echo "No frontend/dist directory"
+
       - name: Copy files to server
         uses: appleboy/scp-action@master
         with:
@@ -57,9 +64,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: |
-            backend/*
-            frontend/dist/*
-          target: /home/thinking/thinking  # UPDATE THIS to your deploy path
+            backend
+            frontend/dist
+          target: /home/thinking/thinking
       - name: Restart backend and reload Nginx
         uses: appleboy/ssh-action@master
         with:
