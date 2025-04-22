@@ -41,6 +41,11 @@ jobs:
         run: cd frontend && npm ci
       - name: Build frontend
         run: cd frontend && npm run build
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-dist
+          path: frontend/dist
 
   deploy:
     needs: build-test
@@ -49,6 +54,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Download frontend build
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-dist
+          path: frontend/dist
       # Deploy to Alibaba Cloud server
       - name: List backend and frontend/dist files
         run: |
