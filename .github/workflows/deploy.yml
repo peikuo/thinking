@@ -72,18 +72,52 @@ jobs:
           echo "Frontend build files:"
           ls -l frontend/dist || echo "No frontend/dist directory"
 
-      - name: Set up SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-      - name: Copy files to server using rsync
-        run: |
-          # Copy backend files
-          rsync -avz --delete backend/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/thinking/thinking/backend/
-          # Copy frontend files
-          rsync -avz --delete frontend/dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/thinking/thinking/frontend/dist/
+      # Use GitHub's upload/download actions for artifacts between jobs,
+      # but for deployment to server, use a different approach
+      - name: Prepare backend files for transfer
+        run: tar -czf backend.tar.gz backend
+
+      - name: Prepare frontend files for transfer
+        run: tar -czf frontend.tar.gz frontend/dist
+
+      - name: Deploy files using scp and ssh
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "backend.tar.gz,frontend.tar.gz"
+          target: "/home/thinking/thinking"
+          strip_components: 0
+          overwrite: true
+          
+      - name: Extract files and restart services
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /home/thinking/thinking
+            
+            # Extract backend files
+            echo "Extracting backend files..."
+            mkdir -p backend-temp
+            tar -xzf backend.tar.gz -C backend-temp
+            rm -rf backend/*
+            cp -r backend-temp/backend/* backend/
+            rm -rf backend-temp
+            rm backend.tar.gz
+            
+            # Extract frontend files
+            echo "Extracting frontend files..."
+            mkdir -p frontend-temp
+            tar -xzf frontend.tar.gz -C frontend-temp
+            rm -rf frontend/dist/*
+            cp -r frontend-temp/frontend/dist/* frontend/dist/
+            rm -rf frontend-temp
+            rm frontend.tar.gz
       - name: Restart backend and reload Nginx
         uses: appleboy/ssh-action@master
         with:
