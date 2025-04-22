@@ -11,6 +11,6 @@ def test_import_main():
     assert hasattr(main, "app")
 
 def test_import_utils():
-    """Test that the backend utils.model_prompts module can be imported."""
+    """Test that the backend utils.model_prompts module can be imported and has get_model_prompt."""
     model_prompts = importlib.import_module("backend.utils.model_prompts")
-    assert hasattr(model_prompts, "get_prompt") or hasattr(model_prompts, "PROMPTS")
+    assert hasattr(model_prompts, "get_model_prompt")
