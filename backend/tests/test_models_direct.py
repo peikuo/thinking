@@ -11,7 +11,7 @@ from datetime import datetime
 # Add the parent directory to the path so we can import the main module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import call_openai, call_grok, call_qwen, call_deepseek
+from main import call_openai, call_grok, call_qwen, call_deepseek, call_glm, call_doubao
 from env_config import get_api_key
 
 # Test prompt in Chinese asking about recent international news
@@ -94,10 +94,12 @@ async def main():
     
     # Define the models and their API functions
     models = [
-        ("OpenAI", call_openai),
-        ("Grok", call_grok),
-        ("Qwen", call_qwen),
-        ("DeepSeek", call_deepseek)
+        # ("Doubao", call_doubao),
+        ("GLM", call_glm),
+        # ("OpenAI", call_openai),
+        # ("Grok", call_grok),
+        # ("Qwen", call_qwen),
+        # ("DeepSeek", call_deepseek)
     ]
     
     # Test each model
