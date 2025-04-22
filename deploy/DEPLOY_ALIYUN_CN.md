@@ -129,9 +129,18 @@
    # 环境
    THINKING_ENV=prd  # 使用生产环境
    
+   # API URLs
+   OPENAI_API_URL=https://api.openai.com/v1
+   GROK_API_URL=https://api.grok.ai/v1
+   GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+   DOUBAO_API_URL=https://ark.cn-beijing.volces.com/api/v3
+   QWEN_API_URL=https://api.qwen.ai/v1
+   DEEPSEEK_API_URL=https://api.deepseek.ai/v1
+   
    # API 密钥
    OPENAI_API_KEY=your_openai_api_key
    GROK_API_KEY=your_grok_api_key
+   GLM_API_KEY=your_glm_api_key
    QWEN_API_KEY=your_qwen_api_key
    DEEPSEEK_API_KEY=your_deepseek_api_key
    

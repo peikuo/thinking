@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { queryAllModels, requestSummary } from '@/lib/api';
 import { ModelResponse, ComparisonSummary, ConversationMessage } from '@/types/models';
 import { ApiKeys } from './useApiKeys';
@@ -10,22 +10,49 @@ interface StreamingState {
   grok: string;
   qwen: string;
   deepseek: string;
+  doubao: string;
+  glm: string;
   summary: string;
 }
+
+// Storage key for saving partial responses
+const STREAMING_STORAGE_KEY = 'thinking-streaming-content';
 
 export function useModelApi() {
   const [loading, setLoading] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [streamingContent, setStreamingContent] = useState<StreamingState>({
-    openai: '',
-    grok: '',
-    qwen: '',
-    deepseek: '',
-    summary: ''
+  const [streamingContent, setStreamingContent] = useState<StreamingState>(() => {
+    // Try to restore streaming content from localStorage on initial load
+    try {
+      const saved = localStorage.getItem(STREAMING_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse saved streaming content', e);
+    }
+    
+    // Default empty state
+    return {
+      openai: '',
+      grok: '',
+      qwen: '',
+      deepseek: '',
+      doubao: '',
+      glm: '',
+      summary: ''
+    };
   });
   const [isStreaming, setIsStreaming] = useState(false);
   const { language } = useLanguage();
+  
+  // Save streaming content to localStorage whenever it changes
+  useEffect(() => {
+    if (Object.values(streamingContent).some(content => content.length > 0)) {
+      localStorage.setItem(STREAMING_STORAGE_KEY, JSON.stringify(streamingContent));
+    }
+  }, [streamingContent]);
 
   const queryModels = useCallback(async (
     prompt: string,
@@ -44,14 +71,21 @@ export function useModelApi() {
     
     // Reset streaming content if using streaming mode
     if (useStreaming) {
-      setStreamingContent({
+      // Clear previous streaming content
+      const emptyContent = {
         openai: '',
         grok: '',
         qwen: '',
         deepseek: '',
+        doubao: '',
+        glm: '',
         summary: ''
-      });
+      };
+      setStreamingContent(emptyContent);
       setIsStreaming(false);
+      
+      // Clear from localStorage to avoid restoring old content on refresh
+      localStorage.removeItem(STREAMING_STORAGE_KEY);
     }
     
     try {
@@ -63,6 +97,8 @@ export function useModelApi() {
         grok: [],
         qwen: [],
         deepseek: [],
+        doubao: [],
+        glm: [],
         summary: []
       };
       
@@ -131,6 +167,16 @@ export function useModelApi() {
     apiKeys: ApiKeys,
     useStreaming: boolean = true
   ): Promise<ComparisonSummary> => {
+    // Filter model responses based on language
+    // For Chinese, include GLM and Doubao; for English, include OpenAI and Grok
+    const relevantModels = language === 'zh'
+      ? ['deepseek', 'qwen', 'doubao', 'glm']
+      : ['openai', 'grok', 'qwen', 'deepseek'];
+    
+    // Only include responses from models relevant to the current language
+    const filteredResponses = modelResponses.filter(response => 
+      relevantModels.includes(response.model as string)
+    );
     setSummaryLoading(true);
     
     // Reset summary streaming content
@@ -177,7 +223,7 @@ export function useModelApi() {
         } : undefined;
       
       // Request summary separately after model responses are rendered
-      const summary = await requestSummary(prompt, modelResponses, apiKeys, language, handleSummaryUpdate);
+      const summary = await requestSummary(prompt, filteredResponses, apiKeys, language, handleSummaryUpdate);
       return summary;
     } catch (err) {
       console.error('Error generating summary:', err);

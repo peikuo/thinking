@@ -1,6 +1,6 @@
 
 export interface ModelResponse {
-  model: 'openai' | 'grok' | 'qwen' | 'deepseek' | 'summary';
+  model: 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm' | 'summary';
   content: string;
   loading?: boolean;
   error?: string;
@@ -26,5 +26,7 @@ export interface StreamingState {
   grok: string;
   qwen: string;
   deepseek: string;
+  doubao: string;
+  glm: string;
   summary: string;
 }

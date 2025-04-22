@@ -5,6 +5,7 @@ import { ModelResponse } from "@/types/models";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw"; // Import rehype-raw to parse HTML tags
 import WaveLoadingAnimation from "./WaveLoadingAnimation";
 import { Separator } from "@/components/ui/separator";
 
@@ -19,6 +20,8 @@ const modelNames = {
   grok: "Grok",
   qwen: "Qwen",
   deepseek: "DeepSeek",
+  doubao: "Doubao",
+  glm: "GLM",
   summary: "Summary"
 };
 
@@ -135,6 +138,7 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
           <div className="prose prose-base max-w-none dark:prose-invert prose-table:overflow-x-auto prose-table:w-full prose-img:rounded-md prose-img:mx-auto">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
               components={markdownComponents}
             >
               {memoizedDisplayContent}

@@ -50,6 +50,10 @@ OPENAI_API_KEY = get_api_key("openai")
 GROK_API_KEY = get_api_key("grok")
 QWEN_API_KEY = get_api_key("qwen")
 DEEPSEEK_API_KEY = get_api_key("deepseek")
+GLM_API_KEY = get_api_key("glm")
+GLM_API_URL = get_api_url("glm")
+DOUBAO_API_KEY = get_api_key("doubao")
+DOUBAO_API_URL = get_api_url("doubao")
 
 # API endpoints
 OPENAI_API_URL = get_api_url("openai")
@@ -99,6 +103,7 @@ async def call_openai(messages: List[Dict[str, str]], api_key: str = None, strea
         # Create an OpenAI client with the API key
         client = AsyncOpenAI(
             api_key=key_to_use,
+            base_url=OPENAI_API_URL,
             max_retries=MAX_RETRIES_COUNT
             # Use the default base URL for OpenAI
         )
@@ -395,6 +400,128 @@ async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, str
             detail=f"DeepSeek API error: {str(e)}"
         )
 
+async def call_glm(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
+    """
+    Call the GLM API for chat completions, using OpenAI-compatible AsyncOpenAI client, just like call_openai.
+    """
+    key_to_use = api_key or GLM_API_KEY
+    if not key_to_use:
+        raise HTTPException(status_code=500, detail="GLM API key not configured")
+
+    # Get the system prompt for GLM in the specified language
+    system_prompt = get_model_prompt("glm", language) if 'get_model_prompt' in globals() else None
+    if system_prompt and not any(msg.get("role") == "system" for msg in messages):
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ] + messages
+
+    try:
+        client = AsyncOpenAI(
+            api_key=key_to_use,
+            base_url=GLM_API_URL,
+            max_retries=MAX_RETRIES_COUNT,
+        )
+        if stream:
+            from fastapi.responses import StreamingResponse
+            async def content_generator():
+                try:
+                    stream_response = await client.chat.completions.create(
+                        model=get_model("glm"),
+                        messages=messages,
+                        stream=True,
+                        timeout=DEFAULT_TIMEOUT
+                    )
+                    async for chunk in stream_response:
+                        if chunk.choices and chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'glm'})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'model': 'glm'})}\n\n"
+                except Exception as e:
+                    yield f"data: {json.dumps({'error': str(e), 'model': 'glm'})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'model': 'glm'})}\n\n"
+            return StreamingResponse(
+                content_generator(),
+                media_type="text/event-stream"
+            )
+        else:
+            response = await client.chat.completions.create(
+                model=get_model("glm"),
+                messages=messages,
+                timeout=DEFAULT_TIMEOUT
+            )
+            return response.choices[0].message.content
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Request to GLM API timed out. Please try again later."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"GLM API error: {str(e)}"
+        )
+
+async def call_doubao(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
+    """
+    Call the Doubao API for chat completions, using OpenAI-compatible AsyncOpenAI client, just like call_openai.
+    """
+    key_to_use = api_key or DOUBAO_API_KEY
+    if not key_to_use:
+        raise HTTPException(status_code=500, detail="Doubao API key not configured")
+
+    # Get the system prompt for Doubao in the specified language
+    system_prompt = get_model_prompt("doubao", language) if 'get_model_prompt' in globals() else None
+    if system_prompt and not any(msg.get("role") == "system" for msg in messages):
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ] + messages
+
+    try:
+        client = AsyncOpenAI(
+            api_key=key_to_use,
+            base_url=DOUBAO_API_URL,
+            max_retries=MAX_RETRIES_COUNT,
+        )
+        if stream:
+            from fastapi.responses import StreamingResponse
+            async def content_generator():
+                try:
+                    stream_response = await client.chat.completions.create(
+                        model=get_model("doubao"),
+                        messages=messages,
+                        stream=True,
+                        timeout=DEFAULT_TIMEOUT
+                    )
+                    async for chunk in stream_response:
+                        if chunk.choices and chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'doubao'})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'model': 'doubao'})}\n\n"
+                except Exception as e:
+                    yield f"data: {json.dumps({'error': str(e), 'model': 'doubao'})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'model': 'doubao'})}\n\n"
+            return StreamingResponse(
+                content_generator(),
+                media_type="text/event-stream"
+            )
+        else:
+            response = await client.chat.completions.create(
+                model=get_model("doubao"),
+                messages=messages,
+                timeout=DEFAULT_TIMEOUT
+            )
+            return response.choices[0].message.content
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Request to Doubao API timed out. Please try again later."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Doubao API error: {str(e)}"
+        )
+
 async def generate_summary(responses: Dict[str, str], question: str, api_key: str = None, language: str = "en", stream: bool = False):
     """Generate a summary of responses from multiple models.
     
@@ -513,6 +640,24 @@ async def chat_deepseek(request: ChatRequest, req: Request):
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
         return await call_deepseek(messages, user_deepseek_key, stream=request.stream, language=request.language)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/doubao")
+async def chat_doubao(request: ChatRequest, req: Request):
+    try:
+        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        user_doubao_key = decode_api_key(req, "X-Doubao-API-Key")
+        return await call_doubao(messages, user_doubao_key, stream=request.stream, language=request.language)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/glm")
+async def chat_glm(request: ChatRequest, req: Request):
+    try:
+        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        user_glm_key = decode_api_key(req, "X-GLM-API-Key")
+        return await call_glm(messages, user_glm_key, stream=request.stream, language=request.language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -676,6 +821,7 @@ if __name__ == "__main__":
     print(f"Grok API Key: {'Configured' if GROK_API_KEY else 'Not configured'}")
     print(f"Qwen API Key: {'Configured' if QWEN_API_KEY else 'Not configured'}")
     print(f"DeepSeek API Key: {'Configured' if DEEPSEEK_API_KEY else 'Not configured'}")
+    print(f"GLM API Key: {'Configured' if GLM_API_KEY else 'Not configured'}")
     print(f"Server: {host}:{port} (debug: {debug})")
     
     import uvicorn

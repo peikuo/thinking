@@ -26,6 +26,66 @@ export function useConversations() {
     if (savedConversations) {
       try {
         const parsed = JSON.parse(savedConversations);
+        
+        // Check if there's any streaming content saved
+        const savedStreamingContent = localStorage.getItem('thinking-streaming-content');
+        if (savedStreamingContent) {
+          try {
+            const streamingData = JSON.parse(savedStreamingContent);
+            
+            // Find the most recent conversation with an assistant message
+            if (parsed.length > 0) {
+              const mostRecentConv = parsed[0];
+              if (mostRecentConv.messages && mostRecentConv.messages.length > 0) {
+                // Get the last assistant message
+                const lastAssistantIndex = mostRecentConv.messages.findIndex(
+                  (msg: ConversationMessage) => msg.role === 'assistant'
+                );
+                
+                if (lastAssistantIndex !== -1) {
+                  // Update the model responses with streaming content
+                  const assistantMsg = mostRecentConv.messages[lastAssistantIndex];
+                  if (assistantMsg.modelResponses) {
+                    // Important: Reset loading state for ALL model responses
+                    assistantMsg.modelResponses = assistantMsg.modelResponses.map(
+                      (response: ModelResponse) => {
+                        const modelKey = response.model as keyof typeof streamingData;
+                        // If we have streaming content for this model, use it
+                        if (streamingData[modelKey] && streamingData[modelKey].length > 0) {
+                          return {
+                            ...response,
+                            content: streamingData[modelKey],
+                            loading: false
+                          };
+                        }
+                        // Otherwise, if it's still in loading state but has no content after refresh,
+                        // assume the request failed and show an empty response instead of perpetual loading
+                        else if (response.loading) {
+                          return {
+                            ...response,
+                            loading: false,
+                            content: response.content || "No response received. Please try again."
+                          };
+                        }
+                        return response;
+                      }
+                    );
+                    
+                    // Update summary if exists
+                    if (streamingData.summary && streamingData.summary.length > 0) {
+                      assistantMsg.summary = {
+                        content: streamingData.summary
+                      };
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to process streaming content', e);
+          }
+        }
+        
         setConversations(parsed);
         
         // Set the active conversation to the most recent one if it exists
@@ -95,27 +155,36 @@ export function useConversations() {
       content: prompt
     };
     
-    // Determine which models to show based on selected models
-    const modelsToShow = selectedModels || ["openai", "grok", "qwen", "deepseek"];
+    // Import language from window.localStorage using the correct key
+    // The LanguageContext uses 'ai-comparison-language' as the key
+    const storedLanguage = window.localStorage.getItem('ai-comparison-language') || 'en';
+    
+    // Determine which models to show based on language and selected models
+    const defaultModels = storedLanguage === 'zh'
+      ? ["deepseek", "qwen", "doubao", "glm"]
+      : ["openai", "grok", "qwen", "deepseek"];
+      
+    // Use selected models if provided, otherwise use language-specific defaults
+    const modelsToShow = selectedModels || defaultModels;
+    
+    console.log(`useConversations - Using models for ${storedLanguage} locale:`, modelsToShow);
     
     // Create placeholders for model responses (only for selected models)
     const loadingResponses: ModelResponse[] = [];
     
-    if (modelsToShow.includes("openai")) {
-      loadingResponses.push({ model: "openai", content: "", loading: true });
-    }
+    // Define all possible models
+    const allModels = ['openai', 'grok', 'qwen', 'deepseek', 'doubao', 'glm'] as const;
     
-    if (modelsToShow.includes("grok")) {
-      loadingResponses.push({ model: "grok", content: "", loading: true });
-    }
-    
-    if (modelsToShow.includes("qwen")) {
-      loadingResponses.push({ model: "qwen", content: "", loading: true });
-    }
-    
-    if (modelsToShow.includes("deepseek")) {
-      loadingResponses.push({ model: "deepseek", content: "", loading: true });
-    }
+    // Create loading placeholders for all selected models
+    allModels.forEach(model => {
+      if (modelsToShow.includes(model)) {
+        loadingResponses.push({ 
+          model: model as 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm', 
+          content: "", 
+          loading: true 
+        });
+      }
+    });
     
     const assistantMessage: ConversationMessage = {
       role: "assistant",

@@ -17,6 +17,8 @@ const createHeaders = (apiKeys?: Record<string, string>) => {
     if (apiKeys.grok) headers['X-Grok-API-Key'] = encodeURIComponent(apiKeys.grok);
     if (apiKeys.qwen) headers['X-Qwen-API-Key'] = encodeURIComponent(apiKeys.qwen);
     if (apiKeys.deepseek) headers['X-DeepSeek-API-Key'] = encodeURIComponent(apiKeys.deepseek);
+    if (apiKeys.doubao) headers['X-Doubao-API-Key'] = encodeURIComponent(apiKeys.doubao);
+    if (apiKeys.glm) headers['X-GLM-API-Key'] = encodeURIComponent(apiKeys.glm);
   }
   
   return headers;
@@ -24,7 +26,7 @@ const createHeaders = (apiKeys?: Record<string, string>) => {
 
 // Function to query a single model with streaming support
 async function querySingleModel(
-  model: 'openai' | 'grok' | 'qwen' | 'deepseek',
+  model: 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm',
   messages: { role: string, content: string }[],
   apiKeys?: Record<string, string>,
   language: string = 'en',
@@ -122,8 +124,23 @@ export async function queryAllModels(
   summary: ComparisonSummary
 }> {
   try {
-    // Determine which models to query
-    const modelsToQuery = selectedModels || ['openai', 'grok', 'qwen', 'deepseek'];
+    // Double-check language from localStorage to ensure consistency
+    const storedLanguage = localStorage.getItem('ai-comparison-language') || 'en';
+    
+    // Use the stored language to determine models (overriding the parameter if needed)
+    // This ensures consistency with the conversation display
+    const effectiveLanguage = storedLanguage as 'en' | 'zh';
+    
+    // Determine which models to query based on language
+    let defaultModels = effectiveLanguage === 'zh' 
+      ? ['deepseek', 'qwen', 'doubao', 'glm']
+      : ['openai', 'grok', 'qwen', 'deepseek'];
+    
+    // Force language-specific models if no specific selection was made
+    // This ensures we always use the right models for the current language
+    const modelsToQuery = selectedModels || defaultModels;
+    
+    console.log(`Using models for ${effectiveLanguage} locale:`, modelsToQuery);
     console.log('Querying models:', modelsToQuery);
     
     // Make parallel requests to selected model endpoints
@@ -170,33 +187,27 @@ export async function queryAllModels(
       return modelHistory.slice(-10); // Keep 5 exchanges (up to 10 messages)
     };
     
-    if (modelsToQuery.includes('openai')) {
-      const openaiMessages = prepareModelHistory('openai');
-      console.log('OpenAI messages:', openaiMessages);
-      modelPromises.push(querySingleModel('openai', openaiMessages, apiKeys, language, onStreamUpdate ? 
-        (chunk) => onStreamUpdate('openai', chunk.content) : undefined));
-    }
+    // Add model queries ONLY for the models we want to query
+    // This ensures we don't create requests for models that aren't relevant to the current language
+    const addModelQuery = (model: 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm') => {
+      if (modelsToQuery.includes(model)) {
+        const messages = prepareModelHistory(model);
+        console.log(`${model} messages:`, messages);
+        modelPromises.push(querySingleModel(
+          model, 
+          messages, 
+          apiKeys, 
+          language, 
+          onStreamUpdate ? (chunk) => onStreamUpdate(model, chunk.content) : undefined
+        ));
+      }
+    };
     
-    if (modelsToQuery.includes('grok')) {
-      const grokMessages = prepareModelHistory('grok');
-      console.log('Grok messages:', grokMessages);
-      modelPromises.push(querySingleModel('grok', grokMessages, apiKeys, language, onStreamUpdate ? 
-        (chunk) => onStreamUpdate('grok', chunk.content) : undefined));
-    }
-    
-    if (modelsToQuery.includes('qwen')) {
-      const qwenMessages = prepareModelHistory('qwen');
-      console.log('Qwen messages:', qwenMessages);
-      modelPromises.push(querySingleModel('qwen', qwenMessages, apiKeys, language, onStreamUpdate ? 
-        (chunk) => onStreamUpdate('qwen', chunk.content) : undefined));
-    }
-    
-    if (modelsToQuery.includes('deepseek')) {
-      const deepseekMessages = prepareModelHistory('deepseek');
-      console.log('DeepSeek messages:', deepseekMessages);
-      modelPromises.push(querySingleModel('deepseek', deepseekMessages, apiKeys, language, onStreamUpdate ? 
-        (chunk) => onStreamUpdate('deepseek', chunk.content) : undefined));
-    }
+    // ONLY add queries for models that are in modelsToQuery
+    // This is the critical fix - we only process the models relevant to the current language
+    modelsToQuery.forEach(model => {
+      addModelQuery(model as 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm');
+    });
     
     const modelResponses = await Promise.all(modelPromises);
     
@@ -212,12 +223,14 @@ export async function queryAllModels(
     
     // Return error responses for all models
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-    const modelResponses: ModelResponse[] = [
-      { model: 'openai', content: "", error: errorMessage },
-      { model: 'grok', content: "", error: errorMessage },
-      { model: 'qwen', content: "", error: errorMessage },
-      { model: 'deepseek', content: "", error: errorMessage }
-    ];
+    
+    // Create error responses based on language
+    const allModels = ['openai', 'grok', 'qwen', 'deepseek', 'doubao', 'glm'] as const;
+    const modelResponses: ModelResponse[] = allModels.map(model => ({
+      model: model as 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm',
+      content: "",
+      error: errorMessage
+    }));
     
     const emptySummary: ComparisonSummary = {
       content: ""

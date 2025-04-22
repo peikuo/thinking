@@ -25,13 +25,17 @@ The following environment variables are supported:
 - `GROK_API_KEY`: Grok API key
 - `QWEN_API_KEY`: Qwen API key
 - `DEEPSEEK_API_KEY`: DeepSeek API key
+- `GLM_API_KEY`: GLM API key (primarily for Chinese language)
+- `DOUBAO_API_KEY`: Doubao API key (primarily for Chinese language)
 
 ### API URLs (optional)
 
-- `OPENAI_API_URL`: OpenAI API URL. Default: `https://api.openai.com/v1/chat/completions`
-- `GROK_API_URL`: Grok API URL. Default: `https://api.x.ai/v1`
-- `QWEN_API_URL`: Qwen API URL. Default: `https://dashscope.aliyuncs.com/compatible-mode/v1`
-- `DEEPSEEK_API_URL`: DeepSeek API URL. Default: `https://api.deepseek.com`
+- `OPENAI_API_URL`: OpenAI API URL. Default: `https://api.openai.com/v1`
+- `GROK_API_URL`: Grok API URL. Default: `https://api.grok.com/v1`
+- `QWEN_API_URL`: Qwen API URL. Default: `https://api.qwen.com/v1`
+- `DEEPSEEK_API_URL`: DeepSeek API URL. Default: `https://api.deepseek.com/v1`
+- `GLM_API_URL`: GLM API URL. Default: `https://open.bigmodel.cn/api/paas/v4`
+- `DOUBAO_API_URL`: Doubao API URL. Default: `https://ark.cn-beijing.volces.com/api/v3`
 
 ### Logging Configuration
 
@@ -43,6 +47,22 @@ The following environment variables are supported:
 - `GROK_MODEL`: Grok model to use. Default: `grok-2-latest`
 - `QWEN_MODEL`: Qwen model to use. Default: `qwen-plus`
 - `DEEPSEEK_MODEL`: DeepSeek model to use. Default: `deepseek-chat`
+- `GLM_MODEL`: GLM model to use. Default: `glm-4`
+- `DOUBAO_MODEL`: Doubao model to use. Default: `doubao-1-5-pro-32k-250115`
+
+### Language-Specific Model Selection
+
+The Thinking platform now supports language-specific model selection, which automatically selects different AI models based on the user's language setting:
+
+- **Chinese Locale (zh)**:
+  - Default models: DeepSeek, Qwen, Doubao, GLM
+  - Summary generation uses these models
+
+- **English Locale (en)**:
+  - Default models: OpenAI, Grok, Qwen, DeepSeek
+  - Summary generation uses these models
+
+This selection happens automatically based on the language setting in the user's browser or their explicit language selection in the UI.
 
 ### Server Configuration (optional)
 

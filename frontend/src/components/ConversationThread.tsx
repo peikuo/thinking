@@ -14,7 +14,7 @@ interface ConversationThreadProps {
 
 const ConversationThread = memo(({ messages }: ConversationThreadProps) => {
   const { layout } = useLayout();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { summaryLoading, streamingContent, isStreaming } = useApp();
   const threadEndRef = React.useRef<HTMLDivElement>(null);
   
@@ -79,35 +79,23 @@ const ConversationThread = memo(({ messages }: ConversationThreadProps) => {
       );
     } else {
       // Compact layout - 2 models per row, summary in its own row
+      // For compact layout, show all models in a grid without filtering by type
+      console.log('ConversationThread - Language:', language);
+      console.log('ConversationThread - Available responses:', message.modelResponses?.map(r => r.model));
+      
       return (
         <>
           {message.modelResponses && message.modelResponses.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* First row: OpenAI and Grok */}
-              {message.modelResponses.filter(r => r.model === 'openai' || r.model === 'grok')
-                .map((response, i) => (
-                  <ModelResponseCard 
-                    key={`${index}-row1-${i}`} 
-                    response={response} 
-                    streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
-                    isStreaming={isStreaming && isLatestMessage}
-                  />
-                ))}
-            </div>
-          )}
-          
-          {message.modelResponses && message.modelResponses.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {/* Second row: Qwen and DeepSeek */}
-              {message.modelResponses.filter(r => r.model === 'qwen' || r.model === 'deepseek')
-                .map((response, i) => (
-                  <ModelResponseCard 
-                    key={`${index}-row2-${i}`} 
-                    response={response} 
-                    streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
-                    isStreaming={isStreaming && isLatestMessage}
-                  />
-                ))}
+              {/* Show all models in a grid */}
+              {message.modelResponses.map((response, i) => (
+                <ModelResponseCard 
+                  key={`${index}-model-${i}`} 
+                  response={response} 
+                  streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
+                  isStreaming={isStreaming && isLatestMessage}
+                />
+              ))}
             </div>
           )}
           

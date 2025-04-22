@@ -56,7 +56,8 @@ DEEPSEEK_PROMPTS = {
 
 # Summary generation prompts
 SUMMARY_PROMPTS = {
-    "en": """
+    # English prompts
+    "en_openai_grok": """
 Analyze and summarize the responses from four different AI models to the following question:
 
 Question: {question}
@@ -81,20 +82,21 @@ Provide a factual, objective summary that includes:
 Focus solely on analyzing the content of the responses without adding your own opinions or subjective judgments. Format your response in clear sections with headings.
 """,
     
-    "zh": """
+    # Chinese prompts
+    "zh_doubao_glm": """
 分析并总结四个不同AI模型对以下问题的回答：
 
 问题：{question}
 
 以下是各模型的回答：
 
-OpenAI：{openai_response}
-
-Grok：{grok_response}
+DeepSeek：{deepseek_response}
 
 Qwen：{qwen_response}
 
-DeepSeek：{deepseek_response}
+Doubao：{doubao_response}
+
+GLM：{glm_response}
 
 请提供一个客观、事实性的总结，包括：
 1. 多个模型共同提到的观点
@@ -134,6 +136,7 @@ def get_model_prompt(model_name: str, language: str = "en") -> str:
 def get_summary_prompt(question: str, responses: dict, language: str = "en") -> str:
     """
     Get the summary prompt for the specified language with the responses filled in.
+    Different locales will summarize different sets of model responses.
     
     Args:
         question: The original question
@@ -143,20 +146,37 @@ def get_summary_prompt(question: str, responses: dict, language: str = "en") -> 
     Returns:
         The formatted summary prompt
     """
-    # Get the base prompt template
-    prompt_template = SUMMARY_PROMPTS.get(language, SUMMARY_PROMPTS["en"])
+    # Define the default text for missing responses based on language
+    no_response_text = "No response" if language == "en" else "无回应"
     
-    # Get the responses for each model, with default text if not available
-    openai_response = responses.get('openai', 'No response' if language == 'en' else '无回应')
-    grok_response = responses.get('grok', 'No response' if language == 'en' else '无回应')
-    qwen_response = responses.get('qwen', 'No response' if language == 'en' else '无回应')
-    deepseek_response = responses.get('deepseek', 'No response' if language == 'en' else '无回应')
+    # Get all possible responses with default text if not available
+    model_responses = {
+        'openai': responses.get('openai', no_response_text),
+        'grok': responses.get('grok', no_response_text),
+        'qwen': responses.get('qwen', no_response_text),
+        'deepseek': responses.get('deepseek', no_response_text),
+        'glm': responses.get('glm', no_response_text),
+        'doubao': responses.get('doubao', no_response_text)
+    }
+    
+    # Select the appropriate prompt template based on language
+    if language == "zh":
+        # For Chinese locale, use the Chinese prompt with Doubao and GLM
+        prompt_key = "zh_doubao_glm"
+    else:
+        # For English locale, use the English prompt with OpenAI and Grok
+        prompt_key = "en_openai_grok"
+    
+    # Get the prompt template
+    prompt_template = SUMMARY_PROMPTS.get(prompt_key)
     
     # Format the prompt with the question and responses
     return prompt_template.format(
         question=question,
-        openai_response=openai_response,
-        grok_response=grok_response,
-        qwen_response=qwen_response,
-        deepseek_response=deepseek_response
+        openai_response=model_responses['openai'],
+        grok_response=model_responses['grok'],
+        qwen_response=model_responses['qwen'],
+        deepseek_response=model_responses['deepseek'],
+        glm_response=model_responses['glm'],
+        doubao_response=model_responses['doubao']
     )

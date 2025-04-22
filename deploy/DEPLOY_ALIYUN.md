@@ -135,6 +135,22 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    QWEN_API_KEY=your_qwen_api_key
    DEEPSEEK_API_KEY=your_deepseek_api_key
    
+   # GLM API Configuration (primarily for Chinese language)
+   GLM_API_KEY=your_glm_api_key
+   GLM_API_URL=https://open.bigmodel.cn/api/paas/v4
+   GLM_MODEL=glm-4
+   
+   # Doubao API Configuration (primarily for Chinese language)
+   DOUBAO_API_KEY=your_doubao_api_key
+   DOUBAO_API_URL=https://ark.cn-beijing.volces.com/api/v3
+   DOUBAO_MODEL=doubao-1-5-pro-32k-250115
+   
+   # Other API URLs
+   OPENAI_API_URL=https://api.openai.com/v1
+   GROK_API_URL=https://api.grok.com/v1
+   QWEN_API_URL=https://api.qwen.com/v1
+   DEEPSEEK_API_URL=https://api.deepseek.com/v1
+   
    # Server Configuration
    SERVER_HOST=0.0.0.0  # Listen on all interfaces
    SERVER_PORT=8000
@@ -172,10 +188,12 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    ```typescript
    const apiConfig: ApiConfig = {
      endpoints: {
-       openai: "http://localhost:8000/api/chat/openai",  // Replace with your domain
-       grok: "http://localhost:8000/api/chat/grok",     // Replace with your domain
-       qwen: "http://localhost:8000/api/chat/qwen",     // Replace with your domain
-       deepseek: "http://localhost:8000/api/chat/deepseek" // Replace with your domain
+       openai: "http://localhost:8000/api/chat/openai",    // Replace with your domain
+       grok: "http://localhost:8000/api/chat/grok",       // Replace with your domain
+       qwen: "http://localhost:8000/api/chat/qwen",       // Replace with your domain
+       deepseek: "http://localhost:8000/api/chat/deepseek", // Replace with your domain
+       doubao: "http://localhost:8000/api/chat/doubao",   // Replace with your domain (Chinese locale)
+       glm: "http://localhost:8000/api/chat/glm"          // Replace with your domain (Chinese locale)
      },
      timeouts: {
        default: 30000 // 30 seconds
@@ -189,6 +207,8 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
      endpoints: {
        openai: "http://localhost:8000/api/chat/openai",
        grok: "http://localhost:8000/api/chat/grok",
+       doubao: "http://localhost:8000/api/chat/doubao",
+       glm: "http://localhost:8000/api/chat/glm",
        qwen: "http://localhost:8000/api/chat/qwen",
        deepseek: "http://localhost:8000/api/chat/deepseek"
      },
@@ -378,6 +398,24 @@ This guide provides step-by-step instructions for deploying the Thinking AI Mode
    ```
    0 0,12 * * * certbot renew --quiet
    ```
+
+## Language-Specific Model Selection
+
+The Thinking platform now supports language-specific model selection, which automatically selects different AI models based on the user's language setting:
+
+- **Chinese Locale (zh)**:
+  - Default models: DeepSeek, Qwen, Doubao, GLM
+  - Summary generation uses these models
+
+- **English Locale (en)**:
+  - Default models: OpenAI, Grok, Qwen, DeepSeek
+  - Summary generation uses these models
+
+This selection happens automatically based on the language setting in the user's browser or their explicit language selection in the UI.
+
+### HTML Content Rendering
+
+The platform now properly renders HTML tags in model responses. This is particularly important for table cells that contain formatted content like lists with `<br>` tags.
 
 ## Setting Up Systemd Services
 

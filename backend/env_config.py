@@ -32,19 +32,24 @@ DEFAULT_CONFIG = {
         "openai": "",
         "grok": "",
         "qwen": "",
-        "deepseek": ""
+        "deepseek": "",
+        "glm": "",
+        "doubao": ""
     },
     "api_urls": {
         "openai": "https://api.openai.com/v1/chat/completions",
         "grok": "https://api.x.ai/v1",
         "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "deepseek": "https://api.deepseek.com"
+        "deepseek": "https://api.deepseek.com",
+        "glm": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "doubao": "https://ark.cn-beijing.volces.com/api/v3"
     },
     "models": {
         "openai": "gpt-4o-mini",
         "grok": "grok-2-latest",
         "qwen": "qwen-plus",
-        "deepseek": "deepseek-chat"
+        "deepseek": "deepseek-chat",
+        "doubao": "doubao-1-5-pro-32k-250115"
     },
     "server": {
         "host": "localhost",
