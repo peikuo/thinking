@@ -42,7 +42,7 @@ jobs:
       - name: Build frontend
         run: cd frontend && npm run build
       - name: Upload frontend build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: frontend-dist
           path: frontend/dist
@@ -55,7 +55,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Download frontend build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.1.3
         with:
           name: frontend-dist
           path: frontend/dist
