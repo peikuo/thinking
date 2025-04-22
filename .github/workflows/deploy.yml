@@ -30,7 +30,7 @@ jobs:
       - name: Run backend tests
         run: |
           source .venv/bin/activate
-          pytest backend/tests --maxfail=1 --disable-warnings
+          PYTHONPATH=$PYTHONPATH:$(pwd) pytest backend/tests --maxfail=1 --disable-warnings
 
       # Frontend: Set up Node.js and build
       - name: Set up Node.js
