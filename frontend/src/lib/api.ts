@@ -159,6 +159,9 @@ export async function queryAllModels(
       // Extract model-specific history (only this model's responses)
       const modelHistory: { role: string, content: string }[] = [];
       
+      // Track if we've seen any assistant responses for this model
+      let hasModelResponses = false;
+      
       // Process conversation history to extract relevant messages
       for (let i = 0; i < conversationHistory.length; i++) {
         const msg = conversationHistory[i];
@@ -172,19 +175,35 @@ export async function queryAllModels(
           const modelResponse = msg.modelResponses.find(r => r.model === modelName);
           if (modelResponse && modelResponse.content) {
             modelHistory.push({ role: 'assistant', content: modelResponse.content });
+            hasModelResponses = true;
           }
         }
       }
       
+      // If we have no assistant responses for this model (e.g., when switching locales),
+      // only keep the most recent user message to avoid overwhelming the model
+      let filteredHistory = [...modelHistory];
+      if (!hasModelResponses && modelHistory.length > 1) {
+        // Find the last user message
+        const lastUserMessageIndex = modelHistory.map(m => m.role).lastIndexOf('user');
+        if (lastUserMessageIndex >= 0) {
+          // Only keep the last user message
+          filteredHistory = [modelHistory[lastUserMessageIndex]];
+        }
+      }
+      
+      // Use the filtered history for the rest of the function
+      const finalHistory = filteredHistory;
+      
       // Add the current prompt if it's not already the last message
-      if (modelHistory.length === 0 || 
-          modelHistory[modelHistory.length - 1].role !== 'user' || 
-          modelHistory[modelHistory.length - 1].content !== prompt) {
-        modelHistory.push(currentMessage);
+      if (finalHistory.length === 0 || 
+          finalHistory[finalHistory.length - 1].role !== 'user' || 
+          finalHistory[finalHistory.length - 1].content !== prompt) {
+        finalHistory.push(currentMessage);
       }
       
       // Limit to the 5 most recent messages
-      return modelHistory.slice(-10); // Keep 5 exchanges (up to 10 messages)
+      return finalHistory.slice(-10); // Keep 5 exchanges (up to 10 messages)
     };
     
     // Add model queries ONLY for the models we want to query
