@@ -59,6 +59,11 @@ jobs:
         with:
           name: frontend-dist
           path: frontend/dist
+      - name: Extract frontend artifact
+        run: |
+          cd frontend/dist
+          tar -xf artifact.tar
+          rm artifact.tar
       # Deploy to Alibaba Cloud server
       - name: List backend and frontend/dist files
         run: |
