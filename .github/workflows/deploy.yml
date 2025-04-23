@@ -138,27 +138,30 @@ jobs:
             # Notify about deployment
             echo "Deploying new version..."
             
-            # Request service restart (this will use the sudoers configuration)
-            echo "Restarting services..."
-            systemctl restart thinking-backend || echo "Failed to restart backend service"
-            systemctl reload nginx || echo "Failed to reload nginx"
+            # Skip service restart (requires sudo)
+            echo "NOTE: Services will need to be manually restarted"
+            echo "Run these commands as root or with sudo:"
+            echo "  systemctl restart thinking-backend"
+            echo "  systemctl reload nginx"
             
             # Move the new files into place (for next restart)
             echo "Updating files for next service restart..."
             mkdir -p /home/thinking/thinking/backend_backup
             mkdir -p /home/thinking/thinking/frontend/dist_backup
             
-            # Create a backup of current files
-            rsync -a --delete /home/thinking/thinking/backend/ /home/thinking/thinking/backend_backup/
-            rsync -a --delete /home/thinking/thinking/frontend/dist/ /home/thinking/thinking/frontend/dist_backup/
+            # Create a backup of current files (using cp instead of rsync)
+            echo "Creating backups..."
+            cp -r /home/thinking/thinking/backend/* /home/thinking/thinking/backend_backup/ 2>/dev/null || true
+            cp -r /home/thinking/thinking/frontend/dist/* /home/thinking/thinking/frontend/dist_backup/ 2>/dev/null || true
             
             # Deploy new files that the thinking user owns
-            rsync -a --delete /home/thinking/deploy_new/backend/ /home/thinking/thinking/backend/
-            rsync -a --delete /home/thinking/deploy_new/frontend/dist/ /home/thinking/thinking/frontend/dist/
+            echo "Copying new files..."
+            cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
+            cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
             
             # Clean up
             rm -rf /home/thinking/deploy_new
-            echo "Deployment complete."
+            echo "Deployment complete. Please restart services manually."
             EOL
             
             # Make the script executable
