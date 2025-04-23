@@ -100,6 +100,10 @@ jobs:
             tar -xzf frontend.tar.gz -C /home/thinking/deploy_new
             rm backend.tar.gz frontend.tar.gz
             
+            # Clean target directories
+            find /home/thinking/thinking/backend -mindepth 1 -delete 2>/dev/null || true
+            find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
+            
             # Deploy files
             cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
             cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
