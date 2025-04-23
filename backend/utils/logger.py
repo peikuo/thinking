@@ -21,7 +21,7 @@ import uuid
 
 # Import environment configuration
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from env_config import get_log_level
+from env_config import get_log_level, get_env_variable
 
 # ANSI color codes for colorized console output
 COLORS = {
@@ -33,8 +33,16 @@ COLORS = {
     'RESET': '\033[0m'       # Reset to default
 }
 
-# Create logs directory if it doesn't exist
-LOGS_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "logs"
+# Determine environment from .env file
+ENVIRONMENT = get_env_variable("ENVIRONMENT", "development")
+
+# Set logs directory based on environment
+if ENVIRONMENT.lower() == "production":
+    # In production, use a directory outside the deployment path
+    LOGS_DIR = Path("/home/thinking/logs")
+else:
+    # In development, use a directory in the project
+    LOGS_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
 # Define log file paths

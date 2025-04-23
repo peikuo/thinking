@@ -184,11 +184,24 @@ def get_log_level() -> str:
     Returns:
         The log level (debug, info, warning, error, critical)
     """
-    log_level = os.environ.get("LOG_LEVEL", LOG_LEVEL_INFO).lower()
-    valid_levels = [LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR, LOG_LEVEL_CRITICAL]
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
     
-    if log_level not in valid_levels:
-        logger.warning(f"Invalid log level: {log_level}, defaulting to {LOG_LEVEL_INFO}")
-        return LOG_LEVEL_INFO
+    if log_level not in [LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR, LOG_LEVEL_CRITICAL]:
+        logger.warning(f"Invalid log level: {log_level}. Using default: {LOG_LEVEL_INFO}")
+        log_level = LOG_LEVEL_INFO
     
     return log_level
+
+
+def get_env_variable(name: str, default: Any = None) -> Any:
+    """
+    Get an environment variable value.
+    
+    Args:
+        name: The name of the environment variable
+        default: Default value if not found
+        
+    Returns:
+        The environment variable value or default
+    """
+    return os.getenv(name, default)
