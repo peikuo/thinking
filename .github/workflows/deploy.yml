@@ -113,14 +113,6 @@ jobs:
             cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
             cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
             
-            # Restore .env file if backup exists
-            if [ -f /home/thinking/thinking/backend/.env.backup ]; then
-                mv /home/thinking/thinking/backend/.env.backup /home/thinking/thinking/backend/.env
-                echo "Restored .env file from backup"
-            else
-                echo "WARNING: No .env backup found. You may need to recreate your .env file."
-            fi
-            
             # Clean up
             rm -rf /home/thinking/deploy_new
             
