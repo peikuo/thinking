@@ -14,33 +14,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Backend: Set up Python and run tests
+      # Backend: Build and test
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Install uv
+      - name: Install uv and dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install uv
-      - name: Create Python virtual environment
-        run: uv venv .venv
-      - name: Install dependencies
-        run: uv pip install -r backend/requirements.txt
+          uv venv .venv
+          uv pip install -r backend/requirements.txt
       - name: Run backend tests
         run: |
           source .venv/bin/activate
           PYTHONPATH=$PYTHONPATH:$(pwd) pytest backend/tests --maxfail=1 --disable-warnings
 
-      # Frontend: Set up Node.js and build
+      # Frontend: Build
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      - name: Install frontend dependencies
-        run: cd frontend && npm ci
       - name: Build frontend
-        run: cd frontend && npm run build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
       - name: Upload frontend build
         uses: actions/upload-pages-artifact@v3
         with:
@@ -54,6 +52,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      
+      # Get frontend build from previous job
       - name: Download frontend build
         uses: actions/download-artifact@v4
         with:
@@ -64,23 +64,15 @@ jobs:
           cd frontend/dist
           tar -xf artifact.tar
           rm artifact.tar
-      # Deploy to Alibaba Cloud server
-      - name: List backend and frontend/dist files
+
+      # Prepare deployment packages
+      - name: Package files for deployment
         run: |
-          echo "Backend files:"
-          ls -l backend || echo "No backend directory"
-          echo "Frontend build files:"
-          ls -l frontend/dist || echo "No frontend/dist directory"
+          tar -czf backend.tar.gz backend
+          tar -czf frontend.tar.gz frontend/dist
 
-      # Use GitHub's upload/download actions for artifacts between jobs,
-      # but for deployment to server, use a different approach
-      - name: Prepare backend files for transfer
-        run: tar -czf backend.tar.gz backend
-
-      - name: Prepare frontend files for transfer
-        run: tar -czf frontend.tar.gz frontend/dist
-
-      - name: Deploy files using scp and ssh
+      # Deploy to server
+      - name: Transfer files to server
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -88,91 +80,34 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "backend.tar.gz,frontend.tar.gz"
           target: "/home/thinking/thinking"
-          strip_components: 0
           overwrite: true
           
-      - name: Extract files to deploy directory
+      # Deploy on server
+      - name: Deploy application
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          script_stop: true
           script: |
-            # Create a deploy directory owned by the thinking user
+            # Set up deployment directories
             cd /home/thinking
-            mkdir -p deploy_new/backend
-            mkdir -p deploy_new/frontend/dist
+            mkdir -p deploy_new/backend deploy_new/frontend/dist
             
-            # Extract backend files
-            echo "Extracting backend files..."
+            # Extract files
             cd /home/thinking/thinking
             tar -xzf backend.tar.gz -C /home/thinking/deploy_new
-            
-            # Extract frontend files
-            echo "Extracting frontend files..."
             tar -xzf frontend.tar.gz -C /home/thinking/deploy_new
-            
-            # Clean up tar files
             rm backend.tar.gz frontend.tar.gz
             
-            # Create a marker file to signal the new deployment is ready
-            touch /home/thinking/deploy_new/READY
-      - name: Create deployment script
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script_stop: true
-          script: |
-            # Create a deployment script that can be run by the thinking user
-            cat > /home/thinking/deploy.sh << 'EOL'
-            #!/bin/bash
-            # Check if the new deployment is ready
-            if [ ! -f /home/thinking/deploy_new/READY ]; then
-              echo "New deployment not ready. Aborting."
-              exit 1
-            fi
-            
-            # Notify about deployment
-            echo "Deploying new version..."
-            
-            # Skip service restart (requires sudo)
-            echo "NOTE: Services will need to be manually restarted"
-            echo "Run these commands as root or with sudo:"
-            echo "  systemctl restart thinking-backend"
-            echo "  systemctl reload nginx"
-            
-            # Move the new files into place (for next restart)
-            echo "Updating files for next service restart..."
-            mkdir -p /home/thinking/thinking/backend_backup
-            mkdir -p /home/thinking/thinking/frontend/dist_backup
-            
-            # Create a backup of current files (using cp instead of rsync)
-            echo "Creating backups..."
-            cp -r /home/thinking/thinking/backend/* /home/thinking/thinking/backend_backup/ 2>/dev/null || true
-            cp -r /home/thinking/thinking/frontend/dist/* /home/thinking/thinking/frontend/dist_backup/ 2>/dev/null || true
-            
-            # Deploy new files that the thinking user owns
-            echo "Copying new files..."
+            # Deploy files
             cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
             cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
             
             # Clean up
             rm -rf /home/thinking/deploy_new
-            echo "Deployment complete. Please restart services manually."
-            EOL
             
-            # Make the script executable
-            chmod +x /home/thinking/deploy.sh
-            
-      - name: Run deployment script
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            # Run the deployment script
-            /home/thinking/deploy.sh
+            # Notify about manual restart needed
+            echo "Deployment complete. Please restart services manually:"
+            echo "  systemctl restart thinking-backend"
+            echo "  systemctl reload nginx"
