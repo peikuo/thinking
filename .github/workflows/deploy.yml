@@ -34,15 +34,24 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
-      - name: Build frontend
+      - name: Debug frontend dependencies
+        run: |
+          cd frontend
+          echo "Current directory: $(pwd)"
+          echo "Package.json content:"
+          cat package.json
+          echo "\n\n"
+      - name: Install frontend dependencies
         run: |
           cd frontend
           rm -rf node_modules
-          npm ci --legacy-peer-deps
+          npm install --no-package-lock
+          npm install rehype-raw@7.0.0 --save
           npm list rehype-raw
-          npm run build
+      - name: Build frontend
+        run: |
+          cd frontend
+          NODE_ENV=production npm run build
       - name: Upload frontend build
         uses: actions/upload-pages-artifact@v3
         with:
