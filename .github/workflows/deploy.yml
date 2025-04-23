@@ -91,7 +91,7 @@ jobs:
           strip_components: 0
           overwrite: true
           
-      - name: Extract files and restart services
+      - name: Extract files to deploy directory
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -99,32 +99,77 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script_stop: true
           script: |
-            cd /home/thinking/thinking
+            # Create a deploy directory owned by the thinking user
+            cd /home/thinking
+            mkdir -p deploy_new/backend
+            mkdir -p deploy_new/frontend/dist
             
             # Extract backend files
             echo "Extracting backend files..."
-            mkdir -p backend-temp
-            tar -xzf backend.tar.gz -C backend-temp
-            rm -rf backend/*
-            cp -r backend-temp/backend/* backend/
-            rm -rf backend-temp
-            rm backend.tar.gz
+            cd /home/thinking/thinking
+            tar -xzf backend.tar.gz -C /home/thinking/deploy_new
             
             # Extract frontend files
             echo "Extracting frontend files..."
-            mkdir -p frontend-temp
-            tar -xzf frontend.tar.gz -C frontend-temp
-            rm -rf frontend/dist/*
-            cp -r frontend-temp/frontend/dist/* frontend/dist/
-            rm -rf frontend-temp
-            rm frontend.tar.gz
-      - name: Restart backend and reload Nginx
+            tar -xzf frontend.tar.gz -C /home/thinking/deploy_new
+            
+            # Clean up tar files
+            rm backend.tar.gz frontend.tar.gz
+            
+            # Create a marker file to signal the new deployment is ready
+            touch /home/thinking/deploy_new/READY
+      - name: Create deployment script
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            # Create a deployment script that can be run by the thinking user
+            cat > /home/thinking/deploy.sh << 'EOL'
+            #!/bin/bash
+            # Check if the new deployment is ready
+            if [ ! -f /home/thinking/deploy_new/READY ]; then
+              echo "New deployment not ready. Aborting."
+              exit 1
+            fi
+            
+            # Notify about deployment
+            echo "Deploying new version..."
+            
+            # Request service restart (this will use the sudoers configuration)
+            echo "Restarting services..."
+            systemctl restart thinking-backend || echo "Failed to restart backend service"
+            systemctl reload nginx || echo "Failed to reload nginx"
+            
+            # Move the new files into place (for next restart)
+            echo "Updating files for next service restart..."
+            mkdir -p /home/thinking/thinking/backend_backup
+            mkdir -p /home/thinking/thinking/frontend/dist_backup
+            
+            # Create a backup of current files
+            rsync -a --delete /home/thinking/thinking/backend/ /home/thinking/thinking/backend_backup/
+            rsync -a --delete /home/thinking/thinking/frontend/dist/ /home/thinking/thinking/frontend/dist_backup/
+            
+            # Deploy new files that the thinking user owns
+            rsync -a --delete /home/thinking/deploy_new/backend/ /home/thinking/thinking/backend/
+            rsync -a --delete /home/thinking/deploy_new/frontend/dist/ /home/thinking/thinking/frontend/dist/
+            
+            # Clean up
+            rm -rf /home/thinking/deploy_new
+            echo "Deployment complete."
+            EOL
+            
+            # Make the script executable
+            chmod +x /home/thinking/deploy.sh
+            
+      - name: Run deployment script
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /home/thinking/thinking/backend
-            sudo systemctl restart thinking-backend
-            sudo systemctl reload nginx
+            # Run the deployment script
+            /home/thinking/deploy.sh
