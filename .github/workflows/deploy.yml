@@ -118,6 +118,9 @@ jobs:
                 cp /home/thinking/thinking/backend/.env /home/thinking/thinking/backend/.env.backup
             fi
             
+            # Fix permissions before cleaning directories
+            sudo chown -R thinking:thinking /home/thinking/thinking/frontend/dist
+            
             # Clean target directories (excluding .env.backup)
             find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
             find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
@@ -125,6 +128,10 @@ jobs:
             # Deploy files
             cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
             cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
+            
+            # Fix permissions after deployment
+            sudo chown -R nginx:nginx /home/thinking/thinking/frontend/dist
+            sudo chmod -R 755 /home/thinking/thinking/frontend/dist
             
             # Clean up
             rm -rf /home/thinking/deploy_new
