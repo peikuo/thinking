@@ -100,8 +100,8 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             # Set up deployment directories
             cd /home/thinking
@@ -118,9 +118,6 @@ jobs:
                 cp /home/thinking/thinking/backend/.env /home/thinking/thinking/backend/.env.backup
             fi
             
-            # Fix permissions before cleaning directories
-            sudo chown -R thinking:thinking /home/thinking/thinking/frontend/dist
-            
             # Clean target directories (excluding .env.backup)
             find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
             find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
@@ -136,7 +133,8 @@ jobs:
             # Clean up
             rm -rf /home/thinking/deploy_new
             
-            # Notify about manual restart needed
-            echo "Deployment complete. Please restart services manually:"
-            echo "  systemctl restart thinking-backend"
-            echo "  systemctl reload nginx"
+            # Restart services automatically
+            sudo systemctl restart thinking-backend
+            sudo systemctl reload nginx
+            
+            echo "Deployment complete. Services have been automatically restarted."
