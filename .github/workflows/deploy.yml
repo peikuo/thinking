@@ -92,7 +92,7 @@ jobs:
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "backend.tar.gz,frontend.tar.gz"
-          target: "/home/thinking/thinking"
+          target: "/home/deploy"
           overwrite: true
           
       # Deploy on server
@@ -104,34 +104,39 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             # Set up deployment directories
-            cd /home/thinking
-            mkdir -p deploy_new/backend deploy_new/frontend/dist
+            mkdir -p /home/deploy/deploy_new/backend /home/deploy/deploy_new/frontend/dist
             
             # Extract files
-            cd /home/thinking/thinking
-            tar -xzf backend.tar.gz -C /home/thinking/deploy_new
-            tar -xzf frontend.tar.gz -C /home/thinking/deploy_new
+            cd /home/deploy
+            tar -xzf backend.tar.gz -C /home/deploy/deploy_new
+            tar -xzf frontend.tar.gz -C /home/deploy/deploy_new
             rm backend.tar.gz frontend.tar.gz
             
             # Backup .env file if it exists
             if [ -f /home/thinking/thinking/backend/.env ]; then
-                cp /home/thinking/thinking/backend/.env /home/thinking/thinking/backend/.env.backup
+                cp /home/thinking/thinking/backend/.env /home/deploy/backend.env.backup
             fi
             
             # Clean target directories (excluding .env.backup)
-            find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
-            find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
+            sudo find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
+            sudo find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
             
             # Deploy files
-            cp -r /home/thinking/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
-            cp -r /home/thinking/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
+            sudo cp -r /home/deploy/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
+            sudo cp -r /home/deploy/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
+            
+            # Restore .env file if backup exists
+            if [ -f /home/deploy/backend.env.backup ]; then
+                sudo cp /home/deploy/backend.env.backup /home/thinking/thinking/backend/.env
+                rm /home/deploy/backend.env.backup
+            fi
             
             # Fix permissions after deployment
             sudo chown -R nginx:nginx /home/thinking/thinking/frontend/dist
             sudo chmod -R 755 /home/thinking/thinking/frontend/dist
             
             # Clean up
-            rm -rf /home/thinking/deploy_new
+            rm -rf /home/deploy/deploy_new
             
             # Restart services automatically
             sudo systemctl restart thinking-backend
