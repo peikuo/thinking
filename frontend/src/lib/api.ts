@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 import { ModelResponse, ComparisonSummary, ConversationMessage } from "@/types/models";
 
-// API base URL - this should be configurable in a real environment
-const API_BASE_URL = 'http://localhost:8000';
+// API base URL - using relative path to work in any environment
+const API_BASE_URL = '';  // Empty string means use the current domain
 
 // Helper function to create API headers with API keys
 const createHeaders = (apiKeys?: Record<string, string>) => {
