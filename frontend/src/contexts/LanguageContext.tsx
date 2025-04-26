@@ -120,6 +120,14 @@ const translations: Translations = {
     en: "DeepSeek API Key",
     zh: "DeepSeek API 密钥"
   },
+  glmKey: {
+    en: "GLM API Key",
+    zh: "GLM API 密钥"
+  },
+  doubaoKey: {
+    en: "Doubao API Key",
+    zh: "Doubao API 密钥"
+  },
   inputPlaceholder: {
     en: "Ask any question to compare AI model responses...",
     zh: "提出问题，汇集多个 AI 模型的智慧..."

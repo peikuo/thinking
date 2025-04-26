@@ -21,11 +21,14 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, loading }) => {
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const { t, language } = useLanguage();
 
-  const availableModels = ['openai', 'grok', 'qwen', 'deepseek'];
+  // Different models based on locale
+  const availableModels = language === 'zh' 
+    ? ['doubao', 'glm', 'deepseek', 'qwen']
+    : ['openai', 'grok', 'qwen', 'deepseek'];
 
   // Extract selected models from the prompt
   const extractSelectedModels = (text: string): string[] => {
-    const modelMentions = text.match(/@(openai|grok|qwen|deepseek)\b/g);
+    const modelMentions = text.match(/@(openai|grok|qwen|deepseek|glm|doubao)\b/g);
     if (!modelMentions) return [];
     return modelMentions.map(mention => mention.substring(1)); // Remove @ symbol
   };
@@ -34,7 +37,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, loading }) => {
     e.preventDefault();
     if (prompt.trim() && !loading) {
       const selectedModels = extractSelectedModels(prompt.trim());
-      const cleanPrompt = prompt.trim().replace(/@(openai|grok|qwen|deepseek)\b/g, '').trim();
+      const cleanPrompt = prompt.trim().replace(/@(openai|grok|qwen|deepseek|glm|doubao)\b/g, '').trim();
       onSubmit(cleanPrompt, selectedModels.length > 0 ? selectedModels : undefined);
       setPrompt("");
     }
@@ -58,7 +61,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, loading }) => {
         e.preventDefault();
         if (prompt.trim() && !loading) {
           const selectedModels = extractSelectedModels(prompt.trim());
-          const cleanPrompt = prompt.trim().replace(/@(openai|grok|qwen|deepseek)\b/g, '').trim();
+          const cleanPrompt = prompt.trim().replace(/@(openai|grok|qwen|deepseek|glm|doubao)\b/g, '').trim();
           onSubmit(cleanPrompt, selectedModels.length > 0 ? selectedModels : undefined);
           setPrompt("");
         }
