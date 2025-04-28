@@ -56,9 +56,10 @@ const MainContent: React.FC<MainContentProps> = ({
           <div className="mb-8">
             {isDiscussMode ? (
               // Discussion Thread (sequential model responses)
-              discussPrompt && (
+              // Show the discussion thread if we have a prompt OR saved responses
+              (discussPrompt || Object.keys(discussResponses).length > 0) && (
                 <DiscussionThread 
-                  userPrompt={discussPrompt}
+                  userPrompt={discussPrompt || lastPrompt} // Use lastPrompt as fallback
                   responses={discussResponses}
                   loading={discussLoading}
                   currentStep={currentStep}

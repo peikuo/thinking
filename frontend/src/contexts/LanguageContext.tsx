@@ -52,6 +52,42 @@ const translations: Translations = {
     en: "Older",
     zh: "更早"
   },
+  last30Days: {
+    en: "Last 30 Days",
+    zh: "前 30 天"
+  },
+  threeDaysAgo: {
+    en: "3 days ago",
+    zh: "三天前"
+  },
+  sevenDaysAgo: {
+    en: "7 days ago",
+    zh: "七天前"
+  },
+  halfYearAgo: {
+    en: "Half year ago",
+    zh: "半年前"
+  },
+  oneYearAgo: {
+    en: "One year ago",
+    zh: "一年前"
+  },
+  generateSummary: {
+    en: "Generate Summary",
+    zh: "生成总结"
+  },
+  generatingSummary: {
+    en: "Generating Summary...",
+    zh: "正在生成总结..."
+  },
+  summary: {
+    en: "Summary",
+    zh: "总结"
+  },
+  summaryError: {
+    en: "Error generating summary. Please try again.",
+    zh: "生成总结时出错。请重试。"
+  },
   responsesGenerated: {
     en: "Responses generated",
     zh: "已生成回应"

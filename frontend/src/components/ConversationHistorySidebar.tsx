@@ -8,15 +8,13 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-import { History, MessageSquare, Trash2, Calendar } from "lucide-react";
+import { History, MessageSquare, Trash2, PlusCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Conversation } from "@/hooks/useConversations";
 import DeleteConfirmationDialog from "./DeleteConfirmationDialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ConversationHistorySidebarProps {
   conversations: Conversation[];
@@ -41,19 +39,61 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [activeTab, setActiveTab] = useState('today');
+  // Track which sections are collapsed
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   
-  // Group conversations by date
+  // Group conversations by relative time periods
   const groupedConversations = useMemo(() => {
+    // Create result object
+    const result: Record<string, Conversation[]> = {};
+    
+    // Sort conversations by timestamp (newest first)
+    const sortedConversations = [...conversations].sort((a, b) => b.timestamp - a.timestamp);
+    
+    // Define time thresholds
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const yesterday = today - 86400000; // 24 hours in milliseconds
+    const yesterday = today - (1 * 86400000); // 1 day in milliseconds
+    const threeDaysAgo = today - (3 * 86400000);
+    const sevenDaysAgo = today - (7 * 86400000);
+    const fifteenDaysAgo = today - (15 * 86400000);
+    const thirtyDaysAgo = today - (30 * 86400000);
+    const halfYearAgo = today - (180 * 86400000); // ~6 months
+    const oneYearAgo = today - (365 * 86400000);
     
-    return {
-      today: conversations.filter(conv => conv.timestamp >= today),
-      yesterday: conversations.filter(conv => conv.timestamp >= yesterday && conv.timestamp < today),
-      older: conversations.filter(conv => conv.timestamp < yesterday)
-    };
-  }, [conversations]);
+    // Group conversations by time periods
+    sortedConversations.forEach(conv => {
+      const timestamp = conv.timestamp;
+      let periodKey;
+      
+      if (timestamp >= today) {
+        periodKey = t('today');
+      } else if (timestamp >= yesterday) {
+        periodKey = t('yesterday');
+      } else if (timestamp >= sevenDaysAgo) {
+        periodKey = t('sevenDaysAgo');
+      } else if (timestamp >= threeDaysAgo) {
+        periodKey = t('threeDaysAgo');
+      } else if (timestamp >= thirtyDaysAgo) {
+        periodKey = t('last30Days');
+      } else if (timestamp >= halfYearAgo) {
+        periodKey = t('halfYearAgo');
+      } else if (timestamp >= oneYearAgo) {
+        periodKey = t('oneYearAgo');
+      } else {
+        // More than a year ago - show the year
+        const date = new Date(timestamp);
+        periodKey = String(date.getFullYear());
+      }
+      
+      if (!result[periodKey]) {
+        result[periodKey] = [];
+      }
+      result[periodKey].push(conv);
+    });
+    
+    return result;
+  }, [conversations, t]);
 
   const handleDeleteClick = (e: React.MouseEvent, conversation: Conversation) => {
     e.stopPropagation();
@@ -101,12 +141,19 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
     setEditingConversationId(null);
   };
 
-  // Render a conversation item
+  // Toggle section collapse state
+  const toggleSection = (sectionKey: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
+  
+  // Render a conversation item in OpenAI style
   const renderConversationItem = (conversation: Conversation) => (
     <SidebarMenuItem key={conversation.id}>
       {editingConversationId === conversation.id ? (
         <div className="flex items-center w-full pl-3 pr-10 py-2">
-          <MessageSquare className="h-4 w-4 mr-2 flex-shrink-0" />
           <input
             type="text"
             value={editTitle}
@@ -114,7 +161,7 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
             onKeyDown={(e) => handleTitleKeyDown(e, conversation.id)}
             onBlur={() => handleTitleBlur(conversation.id)}
             autoFocus
-            className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-slate-400 rounded px-1 text-base"
+            className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-slate-400 rounded px-1 text-sm"
           />
         </div>
       ) : (
@@ -123,27 +170,25 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
           onClick={() => onSelectConversation(conversation.id)}
           onDoubleClick={() => handleDoubleClick(conversation)}
           tooltip={conversation.title}
-          className="text-base pr-8" // Added right padding to make room for delete button
+          className="text-sm py-2 pr-8 hover:bg-gray-100 rounded-md" // OpenAI style
         >
-          <MessageSquare className="h-4 w-4" />
-          <span className="truncate text-base max-w-[calc(100%-28px)]">{conversation.title}</span>
+          <span className="truncate max-w-[calc(100%-28px)]">{conversation.title}</span>
         </SidebarMenuButton>
       )}
       <button 
-        className="absolute right-2 top-1/2 -translate-y-1/2 transition-colors z-10 bg-slate-100 rounded-full p-1 hover:bg-slate-200"
+        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 p-1 hover:bg-gray-200 rounded-md"
         onClick={(e) => handleDeleteClick(e, conversation)}
         aria-label={t('delete')}
         title={t('delete')}
       >
-        <Trash2 className="h-3.5 w-3.5 text-slate-400 hover:text-red-500" />
+        <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-red-500" />
       </button>
     </SidebarMenuItem>
   );
 
-  // Render empty state for a tab
+  // Render empty state
   const renderEmptyState = () => (
-    <div className="px-4 py-3 text-center text-sm text-muted-foreground">
-      <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+    <div className="px-4 py-3 text-center text-sm text-gray-500">
       <p>{t('noHistoryYet')}</p>
     </div>
   );
@@ -153,84 +198,58 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
       className={isOpen ? "" : "md:hidden"}
       collapsible={isOpen ? "none" : "offcanvas"}
     >
-      <SidebarHeader className="flex items-center justify-between px-4 py-2">
+      <SidebarHeader className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-slate-600" />
-          <span className="text-base font-medium text-slate-800">
+          <span className="text-base font-medium text-gray-800">
             {t('history')}
           </span>
         </div>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+          <PlusCircle className="h-4 w-4" />
+          <span className="sr-only">New chat</span>
+        </Button>
       </SidebarHeader>
       
-      <SidebarContent>
+      <SidebarContent className="px-2 py-2">
         {conversations.length > 0 ? (
-          <Tabs defaultValue="today" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="today" className="text-xs">
-                {t('today')} {groupedConversations.today.length > 0 && 
-                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 rounded-full px-1.5">
-                    {groupedConversations.today.length}
-                  </span>
-                }
-              </TabsTrigger>
-              <TabsTrigger value="yesterday" className="text-xs">
-                {t('yesterday')} {groupedConversations.yesterday.length > 0 && 
-                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 rounded-full px-1.5">
-                    {groupedConversations.yesterday.length}
-                  </span>
-                }
-              </TabsTrigger>
-              <TabsTrigger value="older" className="text-xs">
-                {t('older')} {groupedConversations.older.length > 0 && 
-                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 rounded-full px-1.5">
-                    {groupedConversations.older.length}
-                  </span>
-                }
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="today" className="mt-0">
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {groupedConversations.today.length > 0 ? 
-                      groupedConversations.today.map(renderConversationItem) : 
-                      renderEmptyState()
+          <div className="space-y-6">
+            {/* Render each date section in chronological order */}
+            {Object.entries(groupedConversations)
+              // Sort sections with Today and Yesterday first, then other dates in reverse chronological order
+              .sort(([dateA], [dateB]) => {
+                const orderA = dateA === t('today') ? 0 : dateA === t('yesterday') ? 1 : 2;
+                const orderB = dateB === t('today') ? 0 : dateB === t('yesterday') ? 1 : 2;
+                
+                if (orderA !== orderB) return orderA - orderB;
+                return dateA.localeCompare(dateB);
+              })
+              .map(([dateStr, convs]) => (
+                <div key={dateStr} className="space-y-1 mb-2">
+                  {/* Collapsible section heading */}
+                  <button 
+                    onClick={() => toggleSection(dateStr)}
+                    className="w-full flex items-center px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider hover:bg-gray-100 rounded-md"
+                  >
+                    {collapsedSections[dateStr] ? 
+                      <ChevronRight className="h-3 w-3 mr-1" /> : 
+                      <ChevronDown className="h-3 w-3 mr-1" />
                     }
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </TabsContent>
+                    {dateStr}
+                  </button>
+                  
+                  {/* Conversations for this period - only show if not collapsed */}
+                  {!collapsedSections[dateStr] && (
+                    <SidebarMenu>
+                      {convs.map(renderConversationItem)}
+                    </SidebarMenu>
+                  )}
+                </div>
+              ))}
             
-            <TabsContent value="yesterday" className="mt-0">
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {groupedConversations.yesterday.length > 0 ? 
-                      groupedConversations.yesterday.map(renderConversationItem) : 
-                      renderEmptyState()
-                    }
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </TabsContent>
-            
-            <TabsContent value="older" className="mt-0">
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {groupedConversations.older.length > 0 ? 
-                      groupedConversations.older.map(renderConversationItem) : 
-                      renderEmptyState()
-                    }
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </TabsContent>
-          </Tabs>
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full px-4 py-8 text-center text-muted-foreground">
-            <History className="h-12 w-12 mb-4 text-muted-foreground/50" />
+          <div className="flex flex-col items-center justify-center h-full px-4 py-8 text-center text-gray-500">
+            <History className="h-12 w-12 mb-4 opacity-50" />
             <p className="text-sm">{t('noHistoryYet')}</p>
             <p className="text-xs mt-1">
               {t('conversationsWillAppear')}
@@ -239,7 +258,7 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
         )}
       </SidebarContent>
       
-      <SidebarFooter className="px-4 py-2 text-xs text-muted-foreground">
+      <SidebarFooter className="px-4 py-2 text-xs text-gray-500 border-t border-gray-200">
         <p>{t('storedLocally')}</p>
       </SidebarFooter>
 

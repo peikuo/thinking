@@ -61,6 +61,77 @@ export async function requestSequentialDiscussion(
 }
 
 // Function to call a single model in discuss mode
+// Function to generate a summary of the discussion
+export async function requestDiscussionSummary(
+  userPrompt: string,
+  responses: Record<string, string>,
+  apiKeys?: Record<string, string>,
+  language: string = 'en',
+  onStreamUpdate?: (content: string) => void
+) {
+  try {
+    const response = await fetch(`/api/discuss/summary`, {
+      method: 'POST',
+      headers: createHeaders(apiKeys),
+      body: JSON.stringify({
+        user_prompt: userPrompt,
+        responses,
+        language,
+        stream: !!onStreamUpdate
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error from summary API: ${response.statusText}`);
+    }
+
+    // Handle streaming response
+    if (onStreamUpdate && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.content) {
+                  fullContent += data.content;
+                  onStreamUpdate(fullContent);
+                }
+              } catch (e) {
+                console.error('Error parsing SSE message:', e);
+              }
+            }
+          }
+        }
+        
+        // Signal that streaming is complete
+        onStreamUpdate(fullContent);
+        return { content: fullContent };
+      } catch (e) {
+        console.error('Error reading stream:', e);
+        throw e;
+      }
+    } else {
+      // Non-streaming response
+      const data = await response.json();
+      return data;
+    }
+  } catch (error) {
+    console.error('Error requesting summary:', error);
+    throw error;
+  }
+}
+
 export async function callDiscussModel(
   model: 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm',
   messages: { role: string, content: string }[],
