@@ -37,8 +37,20 @@ const translations: Translations = {
     zh: "您的对话将显示在这里"
   },
   storedLocally: {
-    en: "Conversations are stored locally",
-    zh: "对话内容本地存储"
+    en: "Conversations are stored locally in your browser",
+    zh: "对话存储在您的浏览器本地"
+  },
+  today: {
+    en: "Today",
+    zh: "今天"
+  },
+  yesterday: {
+    en: "Yesterday",
+    zh: "昨天"
+  },
+  older: {
+    en: "Older",
+    zh: "更早"
   },
   responsesGenerated: {
     en: "Responses generated",

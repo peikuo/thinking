@@ -6,6 +6,7 @@ export interface Conversation {
   id: string;
   title: string;
   messages: ConversationMessage[];
+  timestamp: number; // Unix timestamp in milliseconds
 }
 
 // Helper function to generate a title from the first user message
@@ -25,7 +26,21 @@ export function useConversations() {
     const savedConversations = localStorage.getItem('ai-comparison-conversations');
     if (savedConversations) {
       try {
-        const parsed = JSON.parse(savedConversations);
+        let parsed = JSON.parse(savedConversations);
+        
+        // Add timestamps to any existing conversations that don't have them
+        parsed = parsed.map((conv: Conversation, index: number) => {
+          if (!conv.timestamp) {
+            // If no timestamp, create one based on index (older conversations get older timestamps)
+            const now = Date.now();
+            const daysAgo = index * 1; // Each conversation is 1 day older than the previous
+            return {
+              ...conv,
+              timestamp: now - (daysAgo * 86400000) // 86400000 = 1 day in milliseconds
+            };
+          }
+          return conv;
+        });
         
         // Check if there's any streaming content saved
         const savedStreamingContent = localStorage.getItem('thinking-streaming-content');
@@ -117,7 +132,8 @@ export function useConversations() {
     setConversations(prev => [{
       id: newId,
       title: "New Conversation",
-      messages: []
+      messages: [],
+      timestamp: Date.now()
     }, ...prev]);
     setActiveConversationId(newId);
     return newId;
@@ -193,20 +209,26 @@ export function useConversations() {
       selectedModels: modelsToShow
     };
     
-    // Update conversation with user message and loading state
+    // Update the conversation with the assistant message
     setConversations(prev => {
-      return prev.map(conv => {
-        if (conv.id === currentConversationId) {
-          const isFirstMessage = conv.messages.length === 0;
-          const newMessages = [...conv.messages, userMessage, assistantMessage];
-          return {
-            ...conv,
-            title: isFirstMessage ? generateTitle(prompt) : conv.title,
-            messages: newMessages
-          };
+      const updated = [...prev];
+      const index = updated.findIndex(c => c.id === currentConversationId);
+      if (index !== -1) {
+        // If this is the first message, update the title
+        if (updated[index].messages.length === 0) {
+          updated[index].title = generateTitle(prompt);
         }
-        return conv;
-      });
+        
+        // Add the user message
+        updated[index].messages.push(userMessage);
+        
+        // Add the assistant message with model responses
+        updated[index].messages.push(assistantMessage);
+        
+        // Update timestamp to current time when adding new messages
+        updated[index].timestamp = Date.now();
+      }
+      return updated;
     });
     
     return currentConversationId;
