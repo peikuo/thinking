@@ -59,6 +59,8 @@ export function useDiscussMode() {
       
       // Final update with all responses
       setResponses(results);
+      // Reset streaming model when all models are done
+      setStreamingModel(null);
     } catch (error) {
       console.error('Error in discussion mode:', error);
       toast.error('Failed to complete the discussion');

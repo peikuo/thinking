@@ -81,7 +81,8 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
       {/* Model Responses */}
       {modelOrder.map((model, index) => {
         const hasResponse = model in responses;
-        const isCurrentStep = (index === currentStep && loading) || model === streamingModel;
+        // Only consider it the current step if it's actively streaming or loading without a response
+        const isCurrentStep = (index === currentStep && loading && !hasResponse) || model === streamingModel;
         const isPending = index > currentStep && loading;
         
         return (

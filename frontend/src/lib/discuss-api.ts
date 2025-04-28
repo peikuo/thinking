@@ -118,6 +118,8 @@ export async function callDiscussModel(
           }
         }
         
+        // Signal that streaming is complete for this model
+        onStreamUpdate?.(fullContent);
         return { model, content: fullContent };
       } catch (error) {
         console.error(`Streaming error for ${model}:`, error);
