@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { requestSequentialDiscussion } from '@/lib/discuss-api';
 import { ApiKeys } from './useApiKeys';
@@ -10,12 +10,42 @@ export type DiscussResponse = {
   loading?: boolean;
 };
 
+// Storage key for saving discuss mode responses
+const DISCUSS_STORAGE_KEY = 'thinking-discuss-responses';
+const DISCUSS_PROMPT_KEY = 'thinking-discuss-prompt';
+
 export function useDiscussMode() {
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [streamingModel, setStreamingModel] = useState<string | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string>('');
   const { language } = useLanguage();
+  
+  // Load responses from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedResponses = localStorage.getItem(DISCUSS_STORAGE_KEY);
+      const savedPrompt = localStorage.getItem(DISCUSS_PROMPT_KEY);
+      
+      if (savedResponses) {
+        setResponses(JSON.parse(savedResponses));
+      }
+      
+      if (savedPrompt) {
+        setLastPrompt(savedPrompt);
+      }
+    } catch (error) {
+      console.error('Error loading discuss responses from localStorage:', error);
+    }
+  }, []);
+  
+  // Save responses to localStorage when they change
+  useEffect(() => {
+    if (Object.keys(responses).length > 0) {
+      localStorage.setItem(DISCUSS_STORAGE_KEY, JSON.stringify(responses));
+    }
+  }, [responses]);
 
   // Define the model order based on the language
   const getModelOrder = () => {
@@ -32,6 +62,10 @@ export function useDiscussMode() {
     setResponses({});
     setCurrentStep(0);
     setStreamingModel(null);
+    setLastPrompt(prompt);
+    
+    // Save prompt to localStorage
+    localStorage.setItem(DISCUSS_PROMPT_KEY, prompt);
     
     const modelOrder = getModelOrder();
     
@@ -74,6 +108,7 @@ export function useDiscussMode() {
     loading,
     currentStep,
     streamingModel,
+    lastPrompt,
     startDiscussion,
     getModelOrder
   };

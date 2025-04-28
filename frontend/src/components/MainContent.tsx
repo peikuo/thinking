@@ -28,14 +28,15 @@ const MainContent: React.FC<MainContentProps> = ({
     loading: discussLoading, 
     currentStep,
     streamingModel,
+    lastPrompt,
     startDiscussion 
   } = useDiscussMode();
   
   const hasMessages = messages.length > 0;
   const isDiscussMode = mode === 'discuss';
   
-  // State for discuss mode prompt
-  const [discussPrompt, setDiscussPrompt] = useState<string>("");
+  // State for discuss mode prompt, initialize with lastPrompt if available
+  const [discussPrompt, setDiscussPrompt] = useState<string>(lastPrompt || "");
   
   // Handle discuss mode submit
   const handleDiscussSubmit = (prompt: string) => {
@@ -49,7 +50,7 @@ const MainContent: React.FC<MainContentProps> = ({
   return (
     <main className={`flex-1 py-6 relative z-10 transition-all duration-300 ${sidebarOpen ? 'md:ml-64 container' : 'container-fluid px-4 md:px-8'}`}>
       <div className={`mx-auto ${sidebarOpen ? 'max-w-2xl' : 'w-full max-w-6xl'}`}>
-        {!hasMessages && !discussPrompt ? (
+        {!hasMessages && !discussPrompt && Object.keys(discussResponses).length === 0 ? (
           <WelcomeScreen />
         ) : (
           <div className="mb-8">
