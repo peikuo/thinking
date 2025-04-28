@@ -148,6 +148,10 @@ const translations: Translations = {
     en: "Generating response...",
     zh: "正在生成回答..."
   },
+  streaming: {
+    en: "Streaming",
+    zh: "实时生成中"
+  },
   waitingForPreviousModel: {
     en: "Waiting for previous model's response",
     zh: "等待前一个模型的响应"

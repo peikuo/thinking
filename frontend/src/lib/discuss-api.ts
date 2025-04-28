@@ -29,7 +29,14 @@ export async function requestSequentialDiscussion(
         previousResponse,
         apiKeys,
         language,
-        false // We'll handle streaming separately for now
+        true, // Enable streaming for better user experience
+        (streamContent) => {
+          // Update responses as streaming chunks arrive
+          if (onModelResponse) {
+            allResponses[model] = streamContent;
+            onModelResponse(model, streamContent);
+          }
+        }
       );
 
       if (response.content) {
@@ -61,8 +68,8 @@ export async function callDiscussModel(
   previousResponse: string | null = null,
   apiKeys?: Record<string, string>,
   language: string = 'en',
-  stream: boolean = false,
-  onStreamUpdate?: (chunk: string) => void
+  stream: boolean = true, // Default to streaming for better UX
+  onStreamUpdate?: (content: string) => void
 ): Promise<ModelResponse> {
   try {
     const response = await fetch(`/api/discuss/${model}`, {
@@ -85,22 +92,40 @@ export async function callDiscussModel(
     if (stream && response.body && onStreamUpdate) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let content = "";
+      let fullContent = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.content) {
+                  // For new streaming implementation, we're getting delta content
+                  fullContent += data.content;
+                  onStreamUpdate(fullContent);
+                }
+              } catch (e) {
+                console.error('Error parsing SSE message:', e);
+              }
+            }
+          }
+        }
         
-        const chunk = decoder.decode(value, { stream: true });
-        content += chunk;
-        onStreamUpdate(content);
+        return { model, content: fullContent };
+      } catch (error) {
+        console.error(`Streaming error for ${model}:`, error);
+        throw error;
+      } finally {
+        reader.releaseLock();
       }
-      
-      return {
-        model,
-        content
-      };
-    } 
+    }
     
     // Handle non-streaming response
     const data = await response.json();

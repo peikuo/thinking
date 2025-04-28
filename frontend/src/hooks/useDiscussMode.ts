@@ -14,6 +14,7 @@ export function useDiscussMode() {
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [streamingModel, setStreamingModel] = useState<string | null>(null);
   const { language } = useLanguage();
 
   // Define the model order based on the language
@@ -30,6 +31,7 @@ export function useDiscussMode() {
     setLoading(true);
     setResponses({});
     setCurrentStep(0);
+    setStreamingModel(null);
     
     const modelOrder = getModelOrder();
     
@@ -41,8 +43,17 @@ export function useDiscussMode() {
         language,
         (model, content) => {
           // Update responses as they come in
+          setStreamingModel(model);
           setResponses(prev => ({ ...prev, [model]: content }));
-          setCurrentStep(prev => prev + 1);
+          
+          // Only increment step when moving to a new model
+          setResponses(prev => {
+            // Only increment step when this is a new model (not already in responses)
+            if (!prev[model]) {
+              setCurrentStep(currentStep => currentStep + 1);
+            }
+            return { ...prev, [model]: content };
+          });
         }
       );
       
@@ -60,7 +71,8 @@ export function useDiscussMode() {
     responses,
     loading,
     currentStep,
-    totalSteps: getModelOrder().length,
-    startDiscussion
+    streamingModel,
+    startDiscussion,
+    getModelOrder
   };
 }

@@ -27,7 +27,7 @@ const MainContent: React.FC<MainContentProps> = ({
     responses: discussResponses, 
     loading: discussLoading, 
     currentStep,
-    totalSteps,
+    streamingModel,
     startDiscussion 
   } = useDiscussMode();
   
@@ -61,7 +61,7 @@ const MainContent: React.FC<MainContentProps> = ({
                   responses={discussResponses}
                   loading={discussLoading}
                   currentStep={currentStep}
-                  totalSteps={totalSteps}
+                  streamingModel={streamingModel}
                 />
               )
             ) : (

@@ -12,7 +12,7 @@ interface DiscussionThreadProps {
   responses: Record<string, string>;
   loading: boolean;
   currentStep: number;
-  totalSteps: number;
+  streamingModel: string | null;
 }
 
 // Get model initials for avatar
@@ -39,7 +39,7 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
   responses,
   loading,
   currentStep,
-  totalSteps
+  streamingModel
 }) => {
   const { t, language } = useLanguage();
   
@@ -47,6 +47,9 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
   const modelOrder = language === 'zh' 
     ? ['glm', 'doubao', 'deepseek', 'qwen'] 
     : ['openai', 'grok', 'qwen', 'deepseek'];
+    
+  // Calculate total steps for progress bar
+  const totalSteps = modelOrder.length;
 
   return (
     <div className="space-y-4">
@@ -78,7 +81,7 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
       {/* Model Responses */}
       {modelOrder.map((model, index) => {
         const hasResponse = model in responses;
-        const isCurrentStep = index === currentStep && loading;
+        const isCurrentStep = (index === currentStep && loading) || model === streamingModel;
         const isPending = index > currentStep && loading;
         
         return (
@@ -99,12 +102,19 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                   <h4 className="mb-1 font-medium text-gray-700">{model.charAt(0).toUpperCase() + model.slice(1)}</h4>
                   
                   {/* Show loading state */}
-                  {isCurrentStep && (
+                  {isCurrentStep && !hasResponse && (
                     <div className="flex items-center">
                       <div className="animate-pulse mr-2">
                         <Skeleton className="h-4 w-4 rounded-full" />
                       </div>
                       <span className="text-sm text-gray-500">{t('generating')}</span>
+                    </div>
+                  )}
+                  
+                  {/* Show streaming indicator */}
+                  {model === streamingModel && hasResponse && (
+                    <div className="inline-flex items-center mb-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                      <span className="mr-1">●</span> {t('streaming')}...
                     </div>
                   )}
                   
