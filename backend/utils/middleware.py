@@ -12,7 +12,19 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp
 from typing import Callable, Dict, Any, Optional
 
-from utils.logger import log_request, logger
+import os
+import sys
+
+# Add the parent directory to path to support both running methods
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+# Try relative imports first, then fall back to absolute imports
+try:
+    # For running from backend directory
+    from .logger import log_request, logger
+except (ImportError, ValueError):
+    # For running from project root with module prefix
+    from backend.utils.logger import log_request, logger
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """

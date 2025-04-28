@@ -12,8 +12,8 @@ import json
 # Add the parent directory to the path so we can import the main module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import call_deepseek
-from env_config import get_api_key
+from backend.utils.model_helpers import call_deepseek
+from backend.env_config import get_api_key
 
 # Test data
 TEST_MESSAGES = [{"role": "user", "content": "Hello, how are you?"}]

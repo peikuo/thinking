@@ -128,6 +128,30 @@ const translations: Translations = {
     en: "Doubao API Key",
     zh: "Doubao API 密钥"
   },
+  chatMode: {
+    en: "Chat Mode",
+    zh: "聊天模式"
+  },
+  discussMode: {
+    en: "Discuss Mode",
+    zh: "讨论模式"
+  },
+  discussDescription: {
+    en: "Models analyze each other's responses sequentially",
+    zh: "模型依次分析彼此的回答"
+  },
+  discussingModels: {
+    en: "Discussing {current} of {total} models",
+    zh: "正在讨论第 {current} 个模型（共 {total} 个）"
+  },
+  generating: {
+    en: "Generating response...",
+    zh: "正在生成回答..."
+  },
+  waitingForPreviousModel: {
+    en: "Waiting for previous model's response",
+    zh: "等待前一个模型的响应"
+  },
   inputPlaceholder: {
     en: "Ask any question to compare AI model responses...",
     zh: "提出问题，汇集多个 AI 模型的智慧..."

@@ -11,8 +11,8 @@ from datetime import datetime
 # Add the parent directory to the path so we can import the main module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import call_openai, call_grok, call_qwen, call_deepseek, call_glm, call_doubao
-from env_config import get_api_key
+from backend.utils.model_helpers import call_openai, call_grok, call_qwen, call_deepseek, call_glm, call_doubao
+from backend.env_config import get_api_key
 
 # Test prompt in Chinese asking about recent international news
 TEST_PROMPT = "最近有什么国际新闻"

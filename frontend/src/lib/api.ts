@@ -5,7 +5,7 @@ import { ModelResponse, ComparisonSummary, ConversationMessage } from "@/types/m
 const API_BASE_URL = '';  // Empty string means use the current domain
 
 // Helper function to create API headers with API keys
-const createHeaders = (apiKeys?: Record<string, string>) => {
+export const createHeaders = (apiKeys?: Record<string, string>) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -286,7 +286,7 @@ export async function requestSummary(
     const useStreaming = !!onStreamUpdate;
     
     // Request summary from API
-    const summaryResponse = await fetch(`${API_BASE_URL}/api/summary`, {
+    const summaryResponse = await fetch(`${API_BASE_URL}/api/chat/summary`, {
       method: 'POST',
       headers: createHeaders(apiKeys),
       body: JSON.stringify({
