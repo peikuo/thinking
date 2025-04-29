@@ -9,7 +9,12 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # Logging setup
-LOG_PATH = "proxy/proxy.log"
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_PATH = os.path.join(BASE_DIR, "proxy", "proxy.log")
+LOG_DIR = os.path.dirname(LOG_PATH)
+if LOG_DIR and not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR, exist_ok=True)
 logger = logging.getLogger("proxy")
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('[%(asctime)s] %(levelname)s %(message)s')
