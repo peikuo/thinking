@@ -2,9 +2,11 @@ name: Proxy CI/CD
 
 on:
   push:
+    branches: [main]
     paths:
       - 'proxy/**'
       - '.github/workflows/proxy-cicd.yml'
+  workflow_dispatch:
   pull_request:
     paths:
       - 'proxy/**'
