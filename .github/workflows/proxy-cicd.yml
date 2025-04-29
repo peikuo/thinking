@@ -52,6 +52,7 @@ jobs:
           DEPLOY_PROXY_USER: deploy
         run: |
           ssh -o StrictHostKeyChecking=no $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST '
+            mkdir -p ~/thinking &&
             cd ~/thinking &&
             git pull &&
             cd proxy &&
