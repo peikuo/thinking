@@ -49,7 +49,7 @@ jobs:
       - name: Deploy to server as deploy user
         env:
           DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
-          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER }}
+          DEPLOY_PROXY_USER: deploy
         run: |
           ssh -o StrictHostKeyChecking=no $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST '
             cd ~/thinking &&
