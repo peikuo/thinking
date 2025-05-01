@@ -53,11 +53,9 @@ jobs:
           DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
           DEPLOY_PROXY_USER: deploy
         run: |
+          rsync -az --delete proxy/ $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST:~/thinking/proxy/
           ssh -o StrictHostKeyChecking=no $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST '
-            mkdir -p ~/thinking &&
-            cd ~/thinking &&
-            git pull &&
-            cd proxy &&
+            cd ~/thinking/proxy &&
             source ../../.venv/bin/activate &&
             pip install -r requirements.txt &&
             bash bin/restart.sh
