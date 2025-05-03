@@ -59,27 +59,34 @@ jobs:
           ssh -o StrictHostKeyChecking=no $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST 'mkdir -p ~/thinking/proxy'
           scp -r proxy/* $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST:~/thinking/proxy/
           ssh -o StrictHostKeyChecking=no $DEPLOY_PROXY_USER@$DEPLOY_PROXY_HOST '
-            cd ~/thinking/proxy &&
-            if [ ! -d "../../.venv" ]; then
-              echo "Creating Python virtual environment..."
-              mkdir -p ../../.venv
-              # Try to use uv if available or install it
-              if ! command -v uv &> /dev/null; then
-                echo "Installing uv..."
-                pip install uv || {
-                  echo "Failed to install uv, falling back to venv"
-                  python3 -m venv ../../.venv
-                }
-              else
-                python3 -m uv venv ../../.venv
-              fi
-            fi &&
-            source ../../.venv/bin/activate &&
-            # Use uv for pip if available, otherwise use regular pip
-            if command -v uv &> /dev/null; then
-              python3 -m uv pip install -r requirements.txt
-            else
-              pip install -r requirements.txt
-            fi &&
+            set -e # Exit on error
+            cd ~/thinking/proxy
+            echo "Setting up Python environment..."
+            
+            # Create a local venv directory
+            python3 -m venv .venv || {
+              echo "Failed to create venv with python3. Trying with python3.11..."
+              python3.11 -m venv .venv || {
+                echo "ERROR: Could not create Python virtual environment. Please install Python 3.11."
+                exit 1
+              }
+            }
+            
+            # Activate the virtual environment
+            source .venv/bin/activate || {
+              echo "ERROR: Failed to activate virtual environment"
+              exit 1
+            }
+            
+            # Install dependencies
+            echo "Installing dependencies..."
+            pip install --upgrade pip
+            pip install -r requirements.txt || {
+              echo "ERROR: Failed to install requirements"
+              exit 1
+            }
+            
+            # Run the restart script
+            echo "Restarting the proxy service..."
             bash bin/restart.sh
           '
