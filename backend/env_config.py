@@ -8,6 +8,7 @@ Loads API keys and other configuration from environment variables.
 """
 import os
 import logging
+from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists

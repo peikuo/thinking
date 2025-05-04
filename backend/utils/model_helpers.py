@@ -7,6 +7,7 @@ import json
 import time
 import httpx
 import asyncio
+import traceback
 from functools import wraps
 from typing import Dict, List, Optional, Literal
 from fastapi import HTTPException, Request
