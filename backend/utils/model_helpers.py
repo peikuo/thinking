@@ -159,16 +159,23 @@ async def stream_llm_response(provider: ProviderType, messages: List[Dict[str, s
     client = get_client(provider, api_key)
     model_name = get_model(provider)
     
-    response_stream = await client.chat.completions.create(
-        model=model_name,
-        messages=messages,
-        stream=True
-    )
-    
-    # For a streaming response, yield only the delta content
-    async for chunk in response_stream:
-        if chunk.choices[0].delta.content is not None:
-            yield chunk.choices[0].delta.content
+    try:
+        response_stream = await client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            stream=True
+        )
+        
+        # For a streaming response, yield only the delta content
+        async for chunk in response_stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        logger.error(f"Error in {provider} streaming response: {str(e)}")
+        # Yield an error message that can be handled by the client
+        yield f"\n\nError: {str(e)}"
+        # Re-raise the exception to be handled by the error handler decorator
+        raise
 
 # Generic non-streaming function template
 async def get_llm_response(provider: ProviderType, messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
@@ -215,8 +222,16 @@ async def call_openai(messages: List[Dict[str, str]], api_key: str = None, strea
         response_stream = call_openai_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'openai'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'openai'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
@@ -243,8 +258,16 @@ async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream:
         response_stream = call_grok_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'grok'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'grok'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
@@ -271,8 +294,16 @@ async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream:
         response_stream = call_qwen_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'qwen'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'qwen'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'qwen', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'qwen', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'qwen', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
@@ -299,8 +330,16 @@ async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, str
         response_stream = call_deepseek_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'deepseek'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'deepseek'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'deepseek', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
@@ -327,8 +366,16 @@ async def call_glm(messages: List[Dict[str, str]], api_key: str = None, stream: 
         response_stream = call_glm_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'glm'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'glm'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'glm', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
@@ -355,13 +402,57 @@ async def call_doubao(messages: List[Dict[str, str]], api_key: str = None, strea
         response_stream = call_doubao_stream(messages, api_key, language)
         
         async def event_generator():
-            async for delta in response_stream:
-                yield f"data: {json.dumps({'content': delta, 'model': 'doubao'})}\n\n"
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'doubao'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'doubao', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'doubao', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'doubao', 'done': True})}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
         return await call_doubao_no_stream(messages, api_key, language)
+
+# DeepSeek API functions
+@api_error_handler("deepseek")
+async def call_deepseek_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+    """Streaming version of the DeepSeek API call"""
+    async for chunk in stream_llm_response("deepseek", messages, api_key, language):
+        yield chunk
+
+@api_error_handler("deepseek")
+async def call_deepseek_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+    """Non-streaming version of the DeepSeek API call"""
+    return await get_llm_response("deepseek", messages, api_key, language)
+
+@api_error_handler("deepseek")
+async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
+    """Function that determines whether to use streaming or non-streaming version"""
+    if stream:
+        # For streaming, we need to wrap the generator in a StreamingResponse
+        response_stream = call_deepseek_stream(messages, api_key, language)
+        
+        async def event_generator():
+            try:
+                async for delta in response_stream:
+                    yield f"data: {json.dumps({'content': delta, 'model': 'deepseek'})}\n\n"
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
+            except Exception as e:
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'deepseek', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
+        
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+    else:
+        # For non-streaming, return the response directly
+        return await call_deepseek_no_stream(messages, api_key, language)
 
 async def generate_summary(responses: Dict[str, str], question: str, api_key: str = None, language: str = "en", stream: bool = False):
     """
