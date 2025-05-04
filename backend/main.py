@@ -1,38 +1,78 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict
+"""
+Main entrypoint for the Thinking backend API.
+"""
 import os
 import time
-import sys
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from .env_config import get_current_env, get_log_level
+from .routers.chat import chat_router
+from .routers.discuss import discuss_router
+from .utils.logger import logger, archive_old_logs
+from .utils.middleware import RequestLoggingMiddleware
 
-# Add the parent directory to path for imports to work when running from backend/
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
+app = FastAPI(title="Thinking API", description="API for the Thinking project")
 
-# Try relative imports first, then fall back to absolute imports
+# CORS middleware to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development, in production specify the actual origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# Initialize logging system
+logger.info(f"Starting Thinking API in {get_current_env()} environment with log level {get_log_level()}")
+
+# Archive old logs on startup
 try:
-    # For running as python -m backend.main from project root
-    from env_config import (
-        get_api_key, get_api_url, get_model, get_server_config,
-        get_current_env, switch_environment, get_log_level,
-        ENV_DEV, ENV_TEST, ENV_PRD
-    )
-    from utils.logger import logger, archive_old_logs
-    from utils.middleware import RequestLoggingMiddleware
-    from routers.chat import chat_router
-    from routers.discuss import discuss_router
-    print("Using relative imports")
-except ImportError:
-    # For running with uvicorn from project root
-    from backend.env_config import (
-        get_api_key, get_api_url, get_model, get_server_config,
-        get_current_env, switch_environment, get_log_level,
-        ENV_DEV, ENV_TEST, ENV_PRD
-    )
-    from backend.utils.logger import logger, archive_old_logs
-    from backend.utils.middleware import RequestLoggingMiddleware
-    from backend.routers.chat import chat_router
-    from backend.routers.discuss import discuss_router
-    print("Using absolute imports")
+    archive_old_logs()
+    logger.info("Successfully archived old logs")
+except Exception as e:
+    logger.warning(f"Failed to archive old logs: {str(e)}")
+
+# Register routers
+app.include_router(chat_router)
+app.include_router(discuss_router)
+
+@app.get("/api/health")
+async def health_check():
+    """Check if the API is running and return status."""
+    return {
+        "status": "ok",
+        "environment": get_current_env(),
+        "version": "1.0.0"
+    }
+
+@app.get("/api/admin/log-level")
+async def get_current_log_level():
+    """Get the current log level."""
+    return {"level": get_log_level()}
+
+@app.post("/api/admin/log-level/{level}")
+async def set_log_level(level: str):
+    """Set the log level."""
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid log level: {level}")
+    logger.setLevel(level)
+    logger.info(f"Log level changed to {level}")
+    return {"level": level, "status": "updated"}
+
+@app.post("/api/admin/config/reload")
+async def reload_config():
+    """Reload configuration from environment variables."""
+    os.environ["CONFIG_RELOAD_TIMESTAMP"] = str(int(time.time()))
+    logger.info("Configuration reloaded from environment variables")
+    return {"status": "reloaded"}
+
+if __name__ == "__main__":
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
 
 app = FastAPI(title="Thinking API", description="API for the Thinking project")
 

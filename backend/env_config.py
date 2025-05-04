@@ -2,9 +2,12 @@
 Environment-based configuration module for the Thinking API.
 This module loads API keys and other configuration from environment variables.
 """
+"""
+Environment-based configuration module for the Thinking API.
+Loads API keys and other configuration from environment variables.
+"""
 import os
 import logging
-from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists
