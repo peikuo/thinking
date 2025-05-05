@@ -9,19 +9,19 @@ This module provides a comprehensive logging system with:
 - JSON formatting for machine-readable logs
 """
 
-import os
-import sys
 import json
 import logging
 import logging.handlers
+import os
+import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
-import uuid
+from typing import Any, Dict, Optional, Union
 
 # Import environment configuration
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from env_config import get_log_level, get_env_variable
+from env_config import get_env_variable, get_log_level
 
 # ANSI color codes for colorized console output
 COLORS = {

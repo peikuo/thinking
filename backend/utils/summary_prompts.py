@@ -1,5 +1,6 @@
 from typing import Dict
 
+
 def get_summary_prompt(question: str, responses: Dict[str, str], language: str = "en") -> str:
     """
     Generate a prompt for summarizing model responses.

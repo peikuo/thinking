@@ -3,18 +3,19 @@ Direct test script for calling all four AI models with a Chinese prompt.
 This script makes actual API calls and prints the responses.
 """
 import asyncio
+import json
 import os
 import sys
-import json
 from datetime import datetime
 
 # Add the project root to the path so we can import the modules
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 sys.path.insert(0, project_root)
 
-# Now we can import from the backend package
-from backend.utils.model_helpers import call_openai, call_grok, call_qwen, call_deepseek, call_glm, call_doubao
 from backend.env_config import get_api_key
+# Now we can import from the backend package
+from backend.utils.model_helpers import (call_deepseek, call_doubao, call_glm,
+                                         call_grok, call_openai, call_qwen)
 
 # Test prompt in Chinese asking about recent international news
 TEST_PROMPT = "最近有什么国际新闻"
@@ -42,23 +43,31 @@ async def test_model(model_name, api_function, streaming=False):
         if streaming:
             # For streaming mode, we need to handle the response differently
             print(f"\nStreaming response from {model_name}:")
-            response = await api_function(TEST_MESSAGES, api_key, stream=True)
+            response = await api_function(TEST_MESSAGES, api_key, use_streaming=True)
             
             # If it's a StreamingResponse, we need to extract the content
             if hasattr(response, 'body_iterator'):
                 full_content = ""
                 async for chunk in response.body_iterator:
-                    # Decode the chunk and extract the content
-                    chunk_str = chunk.decode('utf-8')
-                    if chunk_str.startswith('data: '):
-                        try:
-                            data = json.loads(chunk_str[6:])
-                            if 'content' in data:
-                                content = data['content']
-                                full_content += content
-                                print(content, end='', flush=True)
-                        except json.JSONDecodeError:
-                            pass
+                    try:
+                        # Handle both bytes and string types
+                        if isinstance(chunk, bytes):
+                            chunk_str = chunk.decode('utf-8')
+                        else:
+                            chunk_str = str(chunk)
+                            
+                        if chunk_str.startswith('data: '):
+                            try:
+                                data = json.loads(chunk_str[6:])
+                                if 'content' in data:
+                                    content = data['content']
+                                    full_content += content
+                                    print(content, end='', flush=True)
+                            except json.JSONDecodeError:
+                                pass
+                    except Exception as e:
+                        print(f"Error processing chunk: {str(e)}")
+                        continue
                 print()  # Add a newline at the end
                 return full_content
             else:
@@ -67,7 +76,7 @@ async def test_model(model_name, api_function, streaming=False):
                 return response
         else:
             # Call the API in non-streaming mode
-            result = await api_function(TEST_MESSAGES, api_key, stream=False)
+            result = await api_function(TEST_MESSAGES, api_key, use_streaming=False)
             
             # Print the result
             print(f"\nResponse from {model_name}:")
@@ -85,8 +94,9 @@ async def main():
     
     # Determine if we should use streaming mode
     import argparse
-    parser = argparse.ArgumentParser(description='Test AI models with direct API calls.')
-    parser.add_argument('--stream', action='store_true', help='Use streaming mode')
+    parser = argparse.ArgumentParser(description="Test LLM APIs with streaming")
+    parser.add_argument("--stream", action="store_true", default=True, help="Use streaming mode")
+    parser.add_argument("--model", type=str, help="Model to test (openai, glm, doubao, grok, qwen, deepseek, all)")
     args = parser.parse_args()
     streaming_mode = args.stream
     
@@ -95,20 +105,30 @@ async def main():
     print(f"Streaming mode: {streaming_mode}")
     
     # Define the models and their API functions
-    models = [
-        # ("Doubao", call_doubao),
-        ("GLM", call_glm),
-        # ("OpenAI", call_openai),
-        # ("Grok", call_grok),
-        # ("Qwen", call_qwen),
-        # ("DeepSeek", call_deepseek)
-    ]
+    all_models = {
+        "doubao": ("Doubao", call_doubao),
+        "glm": ("GLM", call_glm),
+        "openai": ("OpenAI", call_openai),
+        "grok": ("Grok", call_grok),
+        "qwen": ("Qwen", call_qwen),
+        "deepseek": ("DeepSeek", call_deepseek)
+    }
     
-    # Test each model
+    # Test specific model or all models
     responses = {}
-    for model_name, api_function in models:
-        response = await test_model(model_name, api_function, streaming=streaming_mode)
-        responses[model_name.lower()] = response
+    if args.model and args.model.lower() != "all":
+        if args.model.lower() in all_models:
+            model_key = args.model.lower()
+            model_name, api_function = all_models[model_key]
+            response = await test_model(model_name, api_function, streaming=streaming_mode)
+            responses[model_key] = response
+        else:
+            print(f"Model {args.model} not found. Available models: {', '.join(all_models.keys())}")
+    else:
+        # Test all models
+        for model_key, (model_name, api_function) in all_models.items():
+            response = await test_model(model_name, api_function, streaming=streaming_mode)
+            responses[model_key] = response
     
     # Create responses directory if it doesn't exist
     responses_dir = os.path.join(os.path.dirname(__file__), "responses")

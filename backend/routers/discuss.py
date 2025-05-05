@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
-from typing import Dict, List, Optional
-from fastapi.responses import StreamingResponse
 import json
-
 import os
 import sys
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 # Add the parent directory to path to support both running methods
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -13,24 +13,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 # Try relative imports first, then fall back to absolute imports
 try:
     # For running from backend directory
-    from ..models import Message
     from ..env_config import get_api_key
+    from ..models import Message
     from ..utils.logger import logger
+    from ..utils.model_helpers import (call_deepseek, call_doubao, call_glm,
+                                       call_grok, call_openai, call_qwen,
+                                       decode_api_key)
     from ..utils.model_prompts import get_model_prompt
-    from ..utils.model_helpers import (
-        call_openai, call_grok, call_qwen, call_deepseek, 
-        call_glm, call_doubao, decode_api_key
-    )
 except (ImportError, ValueError):
     # For running from project root with module prefix
-    from backend.models import Message
     from backend.env_config import get_api_key
+    from backend.models import Message
     from backend.utils.logger import logger
+    from backend.utils.model_helpers import (call_deepseek, call_doubao,
+                                             call_glm, call_grok, call_openai,
+                                             call_qwen, decode_api_key)
     from backend.utils.model_prompts import get_model_prompt
-    from backend.utils.model_helpers import (
-        call_openai, call_grok, call_qwen, call_deepseek, 
-        call_glm, call_doubao, decode_api_key
-    )
 
 # Create a request model for discussion mode
 class DiscussRequest(BaseModel):
@@ -170,7 +168,7 @@ async def discuss_openai(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_openai_key = decode_api_key(req, "X-OpenAI-API-Key")
-        return await call_openai(formatted_messages, user_openai_key, stream=request.stream, language=request.language)
+        return await call_openai(formatted_messages, user_openai_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"OpenAI discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -187,7 +185,7 @@ async def discuss_grok(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_grok_key = decode_api_key(req, "X-Grok-API-Key")
-        return await call_grok(formatted_messages, user_grok_key, stream=request.stream, language=request.language)
+        return await call_grok(formatted_messages, user_grok_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"Grok discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -204,7 +202,7 @@ async def discuss_qwen(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_qwen_key = decode_api_key(req, "X-Qwen-API-Key")
-        return await call_qwen(formatted_messages, user_qwen_key, stream=request.stream, language=request.language)
+        return await call_qwen(formatted_messages, user_qwen_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"Qwen discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -221,7 +219,7 @@ async def discuss_deepseek(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
-        return await call_deepseek(formatted_messages, user_deepseek_key, stream=request.stream, language=request.language)
+        return await call_deepseek(formatted_messages, user_deepseek_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"DeepSeek discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -238,7 +236,7 @@ async def discuss_doubao(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_doubao_key = decode_api_key(req, "X-Doubao-API-Key")
-        return await call_doubao(formatted_messages, user_doubao_key, stream=request.stream, language=request.language)
+        return await call_doubao(formatted_messages, user_doubao_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"Doubao discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -255,7 +253,7 @@ async def discuss_glm(request: DiscussRequest, req: Request):
             language=request.language
         )
         user_glm_key = decode_api_key(req, "X-GLM-API-Key")
-        return await call_glm(formatted_messages, user_glm_key, stream=request.stream, language=request.language)
+        return await call_glm(formatted_messages, user_glm_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"GLM discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -276,20 +274,20 @@ async def generate_discussion_summary(request: SummaryRequest, req: Request):
             # For Chinese, use deepseek first, fall back to qwen
             try:
                 user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
-                return await call_deepseek(formatted_messages, user_deepseek_key, stream=request.stream, language=request.language)
+                return await call_deepseek(formatted_messages, user_deepseek_key, use_streaming=request.stream, language=request.language)
             except Exception as deepseek_error:
                 logger.warning(f"DeepSeek summary error, falling back to Qwen: {str(deepseek_error)}")
                 user_qwen_key = decode_api_key(req, "X-Qwen-API-Key")
-                return await call_qwen(formatted_messages, user_qwen_key, stream=request.stream, language=request.language)
+                return await call_qwen(formatted_messages, user_qwen_key, use_streaming=request.stream, language=request.language)
         else:
             # For English, use qwen first, fall back to deepseek
             try:
                 user_qwen_key = decode_api_key(req, "X-Qwen-API-Key")
-                return await call_qwen(formatted_messages, user_qwen_key, stream=request.stream, language=request.language)
+                return await call_qwen(formatted_messages, user_qwen_key, use_streaming=request.stream, language=request.language)
             except Exception as qwen_error:
                 logger.warning(f"Qwen summary error, falling back to DeepSeek: {str(qwen_error)}")
                 user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
-                return await call_deepseek(formatted_messages, user_deepseek_key, stream=request.stream, language=request.language)
+                return await call_deepseek(formatted_messages, user_deepseek_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
         logger.error(f"Summary generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

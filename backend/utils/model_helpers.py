@@ -1,15 +1,16 @@
 """
 Helpers for model integration and API proxying in the Thinking backend.
 """
+import asyncio
+import json
 import os
 import sys
-import json
 import time
-import httpx
-import asyncio
 import traceback
 from functools import wraps
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Literal, Optional
+
+import httpx
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI
@@ -19,12 +20,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 try:
     from ..env_config import get_api_key, get_api_url, get_model
-    from .summary_prompts import get_summary_prompt
     from .logger import logger
+    from .summary_prompts import get_summary_prompt
 except (ImportError, ValueError):
     from backend.env_config import get_api_key, get_api_url, get_model
-    from backend.utils.summary_prompts import get_summary_prompt
     from backend.utils.logger import logger
+    from backend.utils.summary_prompts import get_summary_prompt
 
 # Constants
 DEFAULT_TIMEOUT = 60.0  # Default timeout for API calls (in seconds)
@@ -37,7 +38,7 @@ ProviderType = Literal["openai", "glm", "doubao", "grok", "qwen", "deepseek"]
 _clients: Dict[str, AsyncOpenAI] = {}
 _httpx_client: Optional[httpx.AsyncClient] = None  # Legacy httpx client
 
-def get_client(provider: ProviderType, api_key: str = None) -> AsyncOpenAI:
+def get_client(provider_name: ProviderType, api_key: str = None) -> AsyncOpenAI:
     """
     Get or create a shared client for the specified provider.
     
@@ -57,22 +58,23 @@ def get_client(provider: ProviderType, api_key: str = None) -> AsyncOpenAI:
     global _clients
     
     # Use user-provided key if available, otherwise use environment variable
-    key_to_use = api_key or get_api_key(provider)
-    api_url = get_api_url(provider)
+    key_to_use = api_key or get_api_key(provider_name)
+    api_url = get_api_url(provider_name)
     
     if not key_to_use:
-        raise HTTPException(status_code=500, detail=f"{provider.upper()} API key not configured")
+        raise HTTPException(status_code=500, detail=f"{provider_name.upper()} API key not configured")
         
-    # Create a new client if we don't have one for this provider or if the API key is different
-    if provider not in _clients or _clients[provider].api_key != key_to_use:
-        _clients[provider] = AsyncOpenAI(
+    # Create a client if we don't have one for this provider/key combination
+    client_key = f"{provider_name}:{key_to_use}"
+    if client_key not in _clients or _clients[provider_name].api_key != key_to_use:
+        _clients[provider_name] = AsyncOpenAI(
             api_key=key_to_use,
             max_retries=MAX_RETRIES_COUNT,
             base_url=api_url,
             timeout=DEFAULT_TIMEOUT
         )
     
-    return _clients[provider]
+    return _clients[provider_name]
 
 # Provider-specific client getters (for backward compatibility)
 def get_openai_client(api_key: str = None) -> AsyncOpenAI:
@@ -99,23 +101,39 @@ def get_deepseek_client(api_key: str = None) -> AsyncOpenAI:
     """Get or create a shared DeepSeek client"""
     return get_client("deepseek", api_key)
 
-def api_error_handler(provider: str):
+def api_error_handler(provider_name: str):
     """
     Decorator for handling API call errors consistently.
     
     Args:
-        provider: The provider name for error messages
+        provider_name: The provider name for error messages
     """
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
-            except Exception as e:
-                error_msg = f"Failed to call {provider.upper()} API: {str(e)}"
+            except httpx.HTTPStatusError as e:
+                error_msg = f"HTTP error from {provider_name.upper()} API: {e.response.status_code} - {e.response.text}"
                 logger.error(error_msg)
                 logger.debug(traceback.format_exc())
-                raise HTTPException(status_code=500, detail=f"{provider.upper()} API error: {str(e)}")
+                raise HTTPException(status_code=e.response.status_code, detail=f"{provider_name.upper()} API HTTP error: {e.response.text}")
+            except httpx.RequestError as e:
+                error_msg = f"Request error to {provider_name.upper()} API: {str(e)}"
+                logger.error(error_msg)
+                logger.debug(traceback.format_exc())
+                raise HTTPException(status_code=503, detail=f"{provider_name.upper()} API connection error: {str(e)}")
+            except json.JSONDecodeError as e:
+                error_msg = f"JSON decode error from {provider_name.upper()} API: {str(e)}"
+                logger.error(error_msg)
+                logger.debug(traceback.format_exc())
+                raise HTTPException(status_code=500, detail=f"{provider_name.upper()} API returned invalid JSON: {str(e)}")
+            except Exception as e:
+                error_msg = f"Failed to call {provider_name.upper()} API: {str(e)}"
+                logger.error(error_msg)
+                logger.debug(traceback.format_exc())
+                raise HTTPException(status_code=500, detail=f"{provider_name.upper()} API error: {str(e)}")
+
         return wrapper
     return decorator
 
@@ -204,257 +222,369 @@ async def get_llm_response(provider: ProviderType, messages: List[Dict[str, str]
 
 # OpenAI API functions
 @api_error_handler("openai")
-async def call_openai_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_openai_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the OpenAI API call"""
     async for chunk in stream_llm_response("openai", messages, api_key, language):
         yield chunk
 
 @api_error_handler("openai")
-async def call_openai_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_openai_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the OpenAI API call"""
     return await get_llm_response("openai", messages, api_key, language)
 
 @api_error_handler("openai")
-async def call_openai(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_openai_stream(messages, api_key, language)
+async def call_openai(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of OpenAI API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("openai")
+        model_name = get_model("openai")
         
-        async def event_generator():
+        # Define the streaming response generator
+        async def stream_response_generator():
             try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'openai'})}\n\n"
+                # Get the client
+                client = get_openai_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response
+                async for chunk in response:
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            content = delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n"
+                
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n"
             except Exception as e:
+                # Log the error with detailed information
+                logger.error(f"Failed to call OpenAI API: {str(e)}")
+                logger.exception("Exception details:")
+                
                 # Send error message and close the stream properly
                 error_msg = f"Error: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n"
                 yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n"
         
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
-        return await call_openai_no_stream(messages, api_key, language)
+        return await get_openai_response(messages, api_key, language)
 
 # Grok API functions
 @api_error_handler("grok")
-async def call_grok_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_grok_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the Grok API call"""
     async for chunk in stream_llm_response("grok", messages, api_key, language):
         yield chunk
 
 @api_error_handler("grok")
-async def call_grok_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_grok_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the Grok API call"""
     return await get_llm_response("grok", messages, api_key, language)
 
 @api_error_handler("grok")
-async def call_grok(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_grok_stream(messages, api_key, language)
+async def call_grok(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of Grok API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("grok")
+        model_name = get_model("grok")
         
-        async def event_generator():
+        # Define the streaming response generator
+        async def stream_response_generator():
             try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'grok'})}\n\n"
+                # Get the client
+                client = get_grok_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response
+                async for chunk in response:
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            content = delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'grok'})}\n\n"
+                
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n"
             except Exception as e:
+                # Log the error with detailed information
+                logger.error(f"Failed to call Grok API: {str(e)}")
+                logger.exception("Exception details:")
+                
                 # Send error message and close the stream properly
                 error_msg = f"Error: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n"
                 yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n"
         
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
-        return await call_grok_no_stream(messages, api_key, language)
+        return await get_grok_response(messages, api_key, language)
 
 # Qwen API functions
 @api_error_handler("qwen")
-async def call_qwen_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_qwen_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the Qwen API call"""
     async for chunk in stream_llm_response("qwen", messages, api_key, language):
         yield chunk
 
 @api_error_handler("qwen")
-async def call_qwen_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_qwen_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the Qwen API call"""
     return await get_llm_response("qwen", messages, api_key, language)
 
 @api_error_handler("qwen")
-async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_qwen_stream(messages, api_key, language)
+async def call_qwen(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of Qwen API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("qwen")
+        model_name = get_model("qwen")
         
-        async def event_generator():
+        # Define the streaming response generator
+        async def stream_response_generator():
             try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'qwen'})}\n\n"
+                # Get the client
+                client = get_qwen_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response
+                async for chunk in response:
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            content = delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'qwen'})}\n\n"
+                
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'qwen', 'done': True})}\n\n"
             except Exception as e:
+                # Log the error with detailed information
+                logger.error(f"Failed to call Qwen API: {str(e)}")
+                logger.exception("Exception details:")
+                
                 # Send error message and close the stream properly
                 error_msg = f"Error: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg, 'model': 'qwen', 'error': True})}\n\n"
                 yield f"data: {json.dumps({'content': '', 'model': 'qwen', 'done': True})}\n\n"
         
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
-        return await call_qwen_no_stream(messages, api_key, language)
+        return await get_qwen_response(messages, api_key, language)
 
 # DeepSeek API functions
 @api_error_handler("deepseek")
-async def call_deepseek_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_deepseek_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the DeepSeek API call"""
     async for chunk in stream_llm_response("deepseek", messages, api_key, language):
         yield chunk
 
 @api_error_handler("deepseek")
-async def call_deepseek_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_deepseek_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the DeepSeek API call"""
     return await get_llm_response("deepseek", messages, api_key, language)
 
-@api_error_handler("deepseek")
-async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_deepseek_stream(messages, api_key, language)
-        
-        async def event_generator():
-            try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'deepseek'})}\n\n"
-                # Send a final empty data message to properly close the stream
-                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
-            except Exception as e:
-                # Send error message and close the stream properly
-                error_msg = f"Error: {str(e)}"
-                yield f"data: {json.dumps({'content': error_msg, 'model': 'deepseek', 'error': True})}\n\n"
-                yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
-        
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-    else:
-        # For non-streaming, return the response directly
-        return await call_deepseek_no_stream(messages, api_key, language)
+# DeepSeek implementation moved to a single location below (around line 585)        return await get_deepseek_response(messages, api_key, language)
 
 # GLM API functions
 @api_error_handler("glm")
-async def call_glm_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_glm_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the GLM API call"""
     async for chunk in stream_llm_response("glm", messages, api_key, language):
         yield chunk
 
 @api_error_handler("glm")
-async def call_glm_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_glm_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the GLM API call"""
     return await get_llm_response("glm", messages, api_key, language)
 
-@api_error_handler("glm")
-async def call_glm(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_glm_stream(messages, api_key, language)
-        
-        async def event_generator():
-            try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'glm'})}\n\n"
-                # Send a final empty data message to properly close the stream
-                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
-            except Exception as e:
-                # Send error message and close the stream properly
-                error_msg = f"Error: {str(e)}"
-                yield f"data: {json.dumps({'content': error_msg, 'model': 'glm', 'error': True})}\n\n"
-                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
-        
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-    else:
-        # For non-streaming, return the response directly
-        return await call_glm_no_stream(messages, api_key, language)
+# GLM implementation moved to a single location below (around line 570)
 
 # Doubao API functions
 @api_error_handler("doubao")
-async def call_doubao_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def stream_doubao_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Streaming version of the Doubao API call"""
     async for chunk in stream_llm_response("doubao", messages, api_key, language):
         yield chunk
 
 @api_error_handler("doubao")
-async def call_doubao_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_doubao_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the Doubao API call"""
     return await get_llm_response("doubao", messages, api_key, language)
 
 @api_error_handler("doubao")
-async def call_doubao(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_doubao_stream(messages, api_key, language)
+async def call_doubao(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of Doubao API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("doubao")
+        model_name = get_model("doubao")
         
-        async def event_generator():
+        # Define the streaming response generator
+        async def stream_response_generator():
             try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'doubao'})}\n\n"
+                # Get the client
+                client = get_doubao_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response
+                async for chunk in response:
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        yield f"data: {json.dumps({'content': content, 'model': 'doubao'})}\n\n"
+                
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'doubao', 'done': True})}\n\n"
             except Exception as e:
+                # Log the error
+                logger.error(f"Failed to call Doubao API: {str(e)}")
+                logger.exception("Exception details:")
+                
                 # Send error message and close the stream properly
                 error_msg = f"Error: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg, 'model': 'doubao', 'error': True})}\n\n"
                 yield f"data: {json.dumps({'content': '', 'model': 'doubao', 'done': True})}\n\n"
         
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
-        return await call_doubao_no_stream(messages, api_key, language)
+        return await get_doubao_response(messages, api_key, language)
 
-# DeepSeek API functions
-@api_error_handler("deepseek")
-async def call_deepseek_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
-    """Streaming version of the DeepSeek API call"""
-    async for chunk in stream_llm_response("deepseek", messages, api_key, language):
-        yield chunk
+@api_error_handler("glm")
+async def call_glm(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of GLM API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("glm")
+        model_name = get_model("glm")
+        
+        # Define the streaming response generator
+        async def stream_response_generator():
+            try:
+                # Get the client
+                client = get_glm_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response directly without decoding
+                # This avoids the 'str' object has no attribute 'decode' error
+                async for chunk in response:
+                    # Check if the chunk has content and handle it directly as a string
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            content = delta.content
+                            # Format as SSE event directly
+                            yield f"data: {json.dumps({'content': content, 'model': 'glm'})}\n\n"
+                
+                # Send a final empty data message to properly close the stream
+                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
+            except Exception as e:
+                # Log the error with detailed information
+                logger.error(f"Failed to call GLM API: {str(e)}")
+                logger.exception("Exception details:")
+                
+                # Send error message and close the stream properly
+                error_msg = f"Error: {str(e)}"
+                yield f"data: {json.dumps({'content': error_msg, 'model': 'glm', 'error': True})}\n\n"
+                yield f"data: {json.dumps({'content': '', 'model': 'glm', 'done': True})}\n\n"
+        
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
+    else:
+        # For non-streaming, return the response directly
+        return await get_glm_response(messages, api_key, language)
 
 @api_error_handler("deepseek")
-async def call_deepseek_no_stream(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
+async def get_deepseek_response(messages: List[Dict[str, str]], api_key: str = None, language: str = "en"):
     """Non-streaming version of the DeepSeek API call"""
     return await get_llm_response("deepseek", messages, api_key, language)
 
 @api_error_handler("deepseek")
-async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, stream: bool = False, language: str = "en"):
-    """Function that determines whether to use streaming or non-streaming version"""
-    if stream:
-        # For streaming, we need to wrap the generator in a StreamingResponse
-        response_stream = call_deepseek_stream(messages, api_key, language)
+async def call_deepseek(messages: List[Dict[str, str]], api_key: str = None, use_streaming: bool = False, language: str = "en"):
+    """Direct implementation of DeepSeek API call with streaming support"""
+    if use_streaming:
+        # For streaming, implement the streaming logic directly here
+        # Get the API key and model name
+        key_to_use = api_key or get_api_key("deepseek")
+        model_name = get_model("deepseek")
         
-        async def event_generator():
+        # Define the streaming response generator
+        async def stream_response_generator():
             try:
-                async for delta in response_stream:
-                    yield f"data: {json.dumps({'content': delta, 'model': 'deepseek'})}\n\n"
+                # Get the client
+                client = get_deepseek_client(key_to_use)
+                
+                # Make the API call directly
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    stream=True
+                )
+                
+                # Process the streaming response
+                async for chunk in response:
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            content = delta.content
+                            yield f"data: {json.dumps({'content': content, 'model': 'deepseek'})}\n\n"
+                
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
             except Exception as e:
+                # Log the error with detailed information
+                logger.error(f"Failed to call DeepSeek API: {str(e)}")
+                logger.exception("Exception details:")
+                
                 # Send error message and close the stream properly
                 error_msg = f"Error: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg, 'model': 'deepseek', 'error': True})}\n\n"
                 yield f"data: {json.dumps({'content': '', 'model': 'deepseek', 'done': True})}\n\n"
         
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(stream_response_generator(), media_type="text/event-stream")
     else:
         # For non-streaming, return the response directly
-        return await call_deepseek_no_stream(messages, api_key, language)
+        return await get_deepseek_response(messages, api_key, language)
 
-async def generate_summary(responses: Dict[str, str], question: str, api_key: str = None, language: str = "en", stream: bool = False):
+async def generate_summary(responses: Dict[str, str], question: str, api_key: str = None, language: str = "en", use_streaming: bool = False):
     """
     Generate a summary of responses from multiple models.
     
@@ -509,9 +639,9 @@ async def generate_summary(responses: Dict[str, str], question: str, api_key: st
     }
     
     try:
-        result = await model_call_function([system_prompt, user_prompt], api_key, stream=stream, language=language)
+        result = await model_call_function([system_prompt, user_prompt], api_key, use_streaming=use_streaming, language=language)
         
-        if stream:
+        if use_streaming:
             # For streaming, return the generator
             return result
         else:

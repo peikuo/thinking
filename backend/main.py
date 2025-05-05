@@ -1,38 +1,36 @@
-"""
-Main entrypoint for the Thinking backend API.
-"""
 import os
 import sys
 import time
-import uvicorn
-from fastapi import FastAPI, HTTPException
+from typing import Dict
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-# Add the parent directory to sys.path for direct execution
-if __name__ == "__main__":
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Add the parent directory to path for imports to work when running from backend/
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
 
-# Handle imports for both direct execution and module imports
+# Try relative imports first, then fall back to absolute imports
 try:
-    # When running as a module
-    from backend.env_config import (
-        get_current_env, get_log_level, ENV_DEV, ENV_TEST, ENV_PRD,
-        switch_environment, get_server_config
-    )
-    from backend.routers.chat import chat_router
-    from backend.routers.discuss import discuss_router
-    from backend.utils.logger import logger, archive_old_logs
-    from backend.utils.middleware import RequestLoggingMiddleware
-except ImportError:
-    # When running directly
-    from env_config import (
-        get_current_env, get_log_level, ENV_DEV, ENV_TEST, ENV_PRD,
-        switch_environment, get_server_config
-    )
+    # For running as python -m backend.main from project root
+    from env_config import (ENV_DEV, ENV_PRD, ENV_TEST, get_api_key,
+                            get_api_url, get_current_env, get_log_level,
+                            get_model, get_server_config, switch_environment)
     from routers.chat import chat_router
     from routers.discuss import discuss_router
-    from utils.logger import logger, archive_old_logs
+    from utils.logger import archive_old_logs, logger
     from utils.middleware import RequestLoggingMiddleware
+    print("Using relative imports")
+except ImportError:
+    # For running with uvicorn from project root
+    from backend.env_config import (ENV_DEV, ENV_PRD, ENV_TEST, get_api_key,
+                                    get_api_url, get_current_env,
+                                    get_log_level, get_model,
+                                    get_server_config, switch_environment)
+    from backend.routers.chat import chat_router
+    from backend.routers.discuss import discuss_router
+    from backend.utils.logger import archive_old_logs, logger
+    from backend.utils.middleware import RequestLoggingMiddleware
+    print("Using absolute imports")
 
 app = FastAPI(title="Thinking API", description="API for the Thinking project")
 
@@ -62,40 +60,51 @@ except Exception as e:
 app.include_router(chat_router)
 app.include_router(discuss_router)
 
+# Health check endpoint
 @app.get("/api/health")
 async def health_check():
-    """Check if the API is running and return status."""
+    """Check if the API is running and return status"""
     return {
         "status": "ok",
         "environment": get_current_env(),
         "version": "1.0.0"
     }
 
+# Admin endpoints for configuration and monitoring
 @app.get("/api/admin/log-level")
 async def get_current_log_level():
-    """Get the current log level."""
+    """Get the current log level"""
     return {"level": get_log_level()}
 
 @app.post("/api/admin/log-level/{level}")
 async def set_log_level(level: str):
-    """Set the log level."""
-    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-    if level not in valid_levels:
+    """Set the log level"""
+    # Validate the log level
+    if level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         raise HTTPException(status_code=400, detail=f"Invalid log level: {level}")
+        
+    # Set the log level
     logger.setLevel(level)
     logger.info(f"Log level changed to {level}")
+    
     return {"level": level, "status": "updated"}
 
+# Configuration endpoints
 @app.post("/api/admin/config/reload")
 async def reload_config():
-    """Reload configuration from environment variables."""
+    """Reload configuration from environment variables"""
+    # Re-read environment variables
     os.environ["CONFIG_RELOAD_TIMESTAMP"] = str(int(time.time()))
+    
+    # Log configuration reload
     logger.info("Configuration reloaded from environment variables")
+    
+    # Return success status
     return {"status": "reloaded"}
 
 @app.post("/api/admin/env/{env}")
 async def change_environment(env: str):
-    """Change the current environment."""
+    """Change the current environment"""
     if env not in [ENV_DEV, ENV_TEST, ENV_PRD]:
         raise HTTPException(status_code=400, detail=f"Invalid environment: {env}")
     
@@ -107,11 +116,15 @@ async def change_environment(env: str):
 
 @app.get("/api/admin/env")
 async def get_environment():
-    """Get the current environment."""
+    """Get the current environment"""
     return {"environment": get_current_env()}
 
 # Startup configuration
 if __name__ == "__main__":
+    import sys
+
+    import uvicorn
+
     # Get environment from command line if provided
     if len(sys.argv) > 1 and sys.argv[1] in [ENV_DEV, ENV_TEST, ENV_PRD]:
         env = sys.argv[1]
@@ -124,6 +137,4 @@ if __name__ == "__main__":
     
     # Start the server
     logger.info(f"Starting server on {host}:{port}")
-    # Use the appropriate module path based on how the script is being run
-    module_path = "main:app" if os.path.basename(sys.argv[0]) == "main.py" else "backend.main:app"
-    uvicorn.run(module_path, host=host, port=port, reload=get_current_env() == ENV_DEV)
+    uvicorn.run("main:app", host=host, port=port, reload=get_current_env() == ENV_DEV)

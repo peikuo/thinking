@@ -5,6 +5,7 @@ They just verify that the test framework and core backend functions are importab
 """
 import importlib
 
+
 def test_import_main():
     """Test that the backend main module can be imported."""
     main = importlib.import_module("backend.main")

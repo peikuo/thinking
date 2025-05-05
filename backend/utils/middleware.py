@@ -5,15 +5,16 @@ This module provides middleware components for the FastAPI application,
 including request logging, error handling, and more.
 """
 
-import time
 import json
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.types import ASGIApp
-from typing import Callable, Dict, Any, Optional
-
 import os
 import sys
+import time
+from typing import Any, Callable, Dict, Optional
+
+from fastapi import Request, Response
+from starlette.middleware.base import (BaseHTTPMiddleware,
+                                       RequestResponseEndpoint)
+from starlette.types import ASGIApp
 
 # Add the parent directory to path to support both running methods
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
