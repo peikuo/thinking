@@ -47,16 +47,26 @@ async def generate_model_summary(request: SummaryRequest):
     """
     try:
         if request.stream:
-            # For streaming, use StreamingResponse
-            return StreamingResponse(
-                generate_summary(
+            # For streaming, we need to create an async generator function
+            async def summary_stream_generator():
+                # Get the model summary generator
+                summary_response = await generate_summary(
                     request.responses,
                     request.question,
                     language=request.language,
                     use_streaming=True
-                ),
-                media_type="text/event-stream"
-            )
+                )
+                
+                # If it's a StreamingResponse, extract the body_iterator
+                if hasattr(summary_response, 'body_iterator'):
+                    async for chunk in summary_response.body_iterator:
+                        yield chunk
+                else:
+                    # If it's not a StreamingResponse, yield the content as a single chunk
+                    yield f"data: {json.dumps({'content': str(summary_response), 'model': 'summary', 'done': True})}\n\n"
+            
+            # Return the StreamingResponse with our generator
+            return StreamingResponse(summary_stream_generator(), media_type="text/event-stream")
         else:
             # For non-streaming, wait for the full response
             result = await generate_summary(
