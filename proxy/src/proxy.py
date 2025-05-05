@@ -1,15 +1,15 @@
-import os
 import json
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import StreamingResponse, JSONResponse
-import httpx
-from typing import AsyncGenerator
-import openai
 import logging
-from logging.handlers import RotatingFileHandler
-
 # Logging setup
 import os
+from logging.handlers import RotatingFileHandler
+from typing import AsyncGenerator
+
+import httpx
+import openai
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG_PATH = os.path.join(BASE_DIR, "proxy", "proxy.log")
 LOG_DIR = os.path.dirname(LOG_PATH)
