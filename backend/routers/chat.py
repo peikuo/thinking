@@ -53,7 +53,7 @@ async def generate_model_summary(request: SummaryRequest):
                     request.responses,
                     request.question,
                     language=request.language,
-                    stream=True
+                    use_streaming=True
                 ),
                 media_type="text/event-stream"
             )
@@ -63,7 +63,7 @@ async def generate_model_summary(request: SummaryRequest):
                 request.responses,
                 request.question,
                 language=request.language,
-                stream=False
+                use_streaming=False
             )
             return result
     except Exception as e:
