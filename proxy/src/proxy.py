@@ -90,24 +90,16 @@ async def openai_proxy(request: Request):
             # Log the response type
             logger.info(f"[OPENAI] Response type: {type(response)}")
             
+            # Use the OpenAI client but don't modify the response structure
             async for chunk in response:
-                # Log each chunk received from OpenAI
+                # Log the chunk for debugging
                 logger.info(f"[OPENAI] Raw chunk: {chunk}")
-                logger.info(f"[OPENAI] Chunk type: {type(chunk)}")
                 
-                # Format the response to match what the client expects
-                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
-                    delta = chunk.choices[0].delta
-                    logger.info(f"[OPENAI] Delta: {delta}")
-                    
-                    if hasattr(delta, 'content') and delta.content:
-                        content = delta.content
-                        logger.info(f"[OPENAI] Content: {content}")
-                        
-                        # Format the response for the client
-                        formatted_response = f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n".encode("utf-8")
-                        logger.info(f"[OPENAI] Sending to client: {formatted_response}")
-                        yield formatted_response
+                # Just pass the raw chunk through as JSON
+                # This preserves the structure but ensures it's properly serialized
+                chunk_json = chunk.model_dump()
+                # The client expects SSE format with 'data: ' prefix
+                yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
             
             logger.info("[OPENAI] Streaming completed.")
             # Send a final done message
@@ -176,24 +168,16 @@ async def grok_proxy(request: Request):
             
             # Log the response type
             logger.info(f"[GROK] Response type: {type(response)}")
+            # Use the OpenAI client but don't modify the response structure
             async for chunk in response:
-                # Log each chunk received from Grok
+                # Log the chunk for debugging
                 logger.info(f"[GROK] Raw chunk: {chunk}")
-                logger.info(f"[GROK] Chunk type: {type(chunk)}")
                 
-                # Format the response to match what the client expects
-                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
-                    delta = chunk.choices[0].delta
-                    logger.info(f"[GROK] Delta: {delta}")
-                    
-                    if hasattr(delta, 'content') and delta.content:
-                        content = delta.content
-                        logger.info(f"[GROK] Content: {content}")
-                        
-                        # Format the response for the client
-                        formatted_response = f"data: {json.dumps({'content': content, 'model': 'grok'})}\n\n".encode("utf-8")
-                        logger.info(f"[GROK] Sending to client: {formatted_response}")
-                        yield formatted_response
+                # Just pass the raw chunk through as JSON
+                # This preserves the structure but ensures it's properly serialized
+                chunk_json = chunk.model_dump()
+                # The client expects SSE format with 'data: ' prefix
+                yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
                 
             logger.info("[GROK] Streaming completed.")
             # Send a final done message
