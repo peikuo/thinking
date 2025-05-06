@@ -3,9 +3,8 @@ import logging
 # Logging setup
 import os
 from logging.handlers import RotatingFileHandler
-from typing import AsyncGenerator
+import json
 
-import httpx
 import openai
 from openai import OpenAI
 from fastapi import FastAPI, Request, Response
@@ -81,35 +80,21 @@ async def openai_proxy(request: Request):
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
             request_body["stream"] = True
             
-            # Log the request body
-            logger.info(f"[OPENAI] Request body: {request_body}")
-            
             # Use the OpenAI client to make the request
             # The create method returns a Stream object when stream=True
             response = openai_client.chat.completions.create(**request_body)
             
-            # Log the response type
-            logger.info(f"[OPENAI] Response type: {type(response)}")
-            
-            # Use the OpenAI client but don't modify the response structure
             # The Stream object needs to be iterated with for, not async for
             for chunk in response:
-                # Log the chunk for debugging
-                logger.info(f"[OPENAI] Raw chunk: {chunk}")
-                
-                # Just pass the raw chunk through as JSON
+                # Pass the raw chunk through as JSON
                 # This preserves the structure but ensures it's properly serialized
                 chunk_json = chunk.model_dump()
                 # The client expects SSE format with 'data: ' prefix
                 yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
-            
-            logger.info("[OPENAI] Streaming completed.")
             # Send a final done message
             yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
-            logger.error(f"[OPENAI] Error during streaming: {e}")
             error_msg = f"Error: {str(e)}"
-            logger.error(f"[OPENAI] Error message: {error_msg}")
             yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
     
@@ -162,35 +147,21 @@ async def grok_proxy(request: Request):
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
             request_body["stream"] = True
             
-            # Log the request body
-            logger.info(f"[GROK] Request body: {request_body}")
-            
             # Use the OpenAI client to make the request
             # The create method returns a Stream object when stream=True
             response = grok_client.chat.completions.create(**request_body)
             
-            # Log the response type
-            logger.info(f"[GROK] Response type: {type(response)}")
-            
-            # Use the OpenAI client but don't modify the response structure
             # The Stream object needs to be iterated with for, not async for
             for chunk in response:
-                # Log the chunk for debugging
-                logger.info(f"[GROK] Raw chunk: {chunk}")
-                
-                # Just pass the raw chunk through as JSON
+                # Pass the raw chunk through as JSON
                 # This preserves the structure but ensures it's properly serialized
                 chunk_json = chunk.model_dump()
                 # The client expects SSE format with 'data: ' prefix
                 yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
-                
-            logger.info("[GROK] Streaming completed.")
             # Send a final done message
             yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
-            logger.error(f"[GROK] Error during streaming: {e}")
             error_msg = f"Error: {str(e)}"
-            logger.error(f"[GROK] Error message: {error_msg}")
             yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
     
