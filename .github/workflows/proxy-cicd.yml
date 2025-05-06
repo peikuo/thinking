@@ -36,29 +36,6 @@ jobs:
       - name: Run tests (if any)
         run: |
           if [ -d "tests" ]; then pytest; else echo "No tests directory, skipping tests."; fi
-            python3 -m venv .venv || {
-              echo "Failed to create venv with python3. Trying with python3.11..."
-              python3.11 -m venv .venv || {
-                echo "ERROR: Could not create Python virtual environment. Please install Python 3.11."
-                exit 1
-              }
-            }
-            
-            # Activate the virtual environment
-            source .venv/bin/activate || {
-              echo "ERROR: Failed to activate virtual environment"
-              exit 1
-            }
-            
-            # Install dependencies
-            echo "Installing dependencies..."
-            pip install --upgrade pip
-            pip install -r requirements.txt || {
-              echo "ERROR: Failed to install requirements"
-              exit 1
-            }
-            
-            # Run the restart script
             echo "Restarting the proxy service..."
             bash bin/restart.sh
           '
