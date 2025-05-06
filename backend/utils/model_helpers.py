@@ -254,13 +254,27 @@ async def call_openai(messages: List[Dict[str, str]], api_key: str = None, use_s
                     stream=True
                 )
                 
+                # Log the response type
+                logger.info(f"[CLIENT] OpenAI response type: {type(response)}")
+                
                 # Process the streaming response
                 async for chunk in response:
+                    # Log each chunk received
+                    logger.info(f"[CLIENT] Received chunk: {chunk}")
+                    logger.info(f"[CLIENT] Chunk type: {type(chunk)}")
+                    
                     if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
                         delta = chunk.choices[0].delta
+                        logger.info(f"[CLIENT] Delta: {delta}")
+                        
                         if hasattr(delta, 'content') and delta.content:
                             content = delta.content
-                            yield f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n"
+                            logger.info(f"[CLIENT] Content: {content}")
+                            
+                            # Format the response for the client
+                            formatted_response = f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n"
+                            logger.info(f"[CLIENT] Yielding: {formatted_response}")
+                            yield formatted_response
                 
                 # Send a final empty data message to properly close the stream
                 yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n"

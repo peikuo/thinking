@@ -54,12 +54,12 @@ async def openai_proxy(request: Request):
     if not openai_api_url:
         logger.warning("[OPENAI] Using default API URL")
         openai_api_url = "https://api.openai.com/v1"
-        
-    # Create the client
-    openai_client = OpenAI(
-        api_key=api_key,
-        base_url=openai_api_url
-    )
+    
+    # We'll use httpx directly instead of the OpenAI client
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     try:
         body = await request.json()
     except Exception as e:
@@ -81,13 +81,27 @@ async def openai_proxy(request: Request):
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
             request_body["stream"] = True
             response = await openai_client.chat.completions.create(**request_body)
+            # Log the raw response type
+            logger.info(f"[OPENAI] Response type: {type(response)}")
+            
             async for chunk in response:
+                # Log each chunk received from OpenAI
+                logger.info(f"[OPENAI] Raw chunk: {chunk}")
+                logger.info(f"[OPENAI] Chunk type: {type(chunk)}")
+                
                 # Format the response to match what the client expects
                 if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
                     delta = chunk.choices[0].delta
+                    logger.info(f"[OPENAI] Delta: {delta}")
+                    
                     if hasattr(delta, 'content') and delta.content:
                         content = delta.content
-                        yield f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n".encode("utf-8")
+                        logger.info(f"[OPENAI] Content: {content}")
+                        
+                        # Format the response for the client
+                        formatted_response = f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n".encode("utf-8")
+                        logger.info(f"[OPENAI] Sending to client: {formatted_response}")
+                        yield formatted_response
             
             logger.info("[OPENAI] Streaming completed.")
             # Send a final done message
