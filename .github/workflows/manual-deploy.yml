@@ -33,16 +33,14 @@ jobs:
       
       # Download the latest artifacts from the build workflow
       - name: Download backend package
-        uses: dawidd6/action-download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          workflow: Build and Test Pipeline
           name: backend-package
           path: .
           
       - name: Download frontend package
-        uses: dawidd6/action-download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          workflow: Build and Test Pipeline
           name: frontend-package
           path: .
 
@@ -133,12 +131,10 @@ jobs:
       # Download the latest proxy artifacts
       - name: Download proxy package
         id: download-proxy
-        uses: dawidd6/action-download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          workflow: Proxy CI/CD
           name: proxy-package
           path: .
-          if_no_artifact_found: warn
       
       # Package proxy files if no artifact found
       - name: Package proxy files
