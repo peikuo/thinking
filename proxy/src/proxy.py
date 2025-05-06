@@ -76,7 +76,11 @@ async def openai_proxy(request: Request):
     async def event_stream():
         try:
             logger.info(f"[OPENAI] Streaming ChatCompletion: model={model}")
-            response = await openai_client.chat.completions.create(**body, stream=True)
+            # Create a copy of the body to avoid modifying the original
+            request_body = body.copy()
+            # Ensure stream is set to True (it's already in the body, but we want to be explicit)
+            request_body["stream"] = True
+            response = await openai_client.chat.completions.create(**request_body)
             async for chunk in response:
                 # Convert the chunk to a properly formatted SSE message
                 yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
@@ -133,7 +137,11 @@ async def grok_proxy(request: Request):
         try:
             logger.info(f"[GROK] Streaming ChatCompletion: model={model}")
             # Use the dedicated Grok client
-            response = await grok_client.chat.completions.create(**body, stream=True)
+            # Create a copy of the body to avoid modifying the original
+            request_body = body.copy()
+            # Ensure stream is set to True (it's already in the body, but we want to be explicit)
+            request_body["stream"] = True
+            response = await grok_client.chat.completions.create(**request_body)
             async for chunk in response:
                 # Convert the chunk to a properly formatted SSE message
                 yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
