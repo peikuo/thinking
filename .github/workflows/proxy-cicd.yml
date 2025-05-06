@@ -36,6 +36,3 @@ jobs:
       - name: Run tests (if any)
         run: |
           if [ -d "tests" ]; then pytest; else echo "No tests directory, skipping tests."; fi
-            echo "Restarting the proxy service..."
-            bash bin/restart.sh
-          '
