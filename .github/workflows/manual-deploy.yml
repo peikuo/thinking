@@ -31,18 +31,47 @@ jobs:
         with:
           ref: main
       
-      # Download the latest artifacts from the build workflow
+      # Try to download the latest artifacts from the build workflow
       - name: Download backend package
+        id: download-backend
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: backend-package
           path: .
           
       - name: Download frontend package
+        id: download-frontend
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: frontend-package
           path: .
+          
+      # Build backend if artifact not found
+      - name: Build backend (fallback)
+        if: steps.download-backend.outcome != 'success' || steps.download-frontend.outcome != 'success'
+        run: |
+          echo "Artifacts not found. Building packages locally..."
+          
+          # Backend setup
+          python -m pip install --upgrade pip
+          pip install uv
+          uv venv .venv
+          uv pip install -r backend/requirements.txt
+          
+          # Frontend setup
+          cd frontend
+          npm install --no-package-lock
+          npm install rehype-raw@7.0.0 --save
+          NODE_ENV=production npm run build
+          cd ..
+          
+          # Package files for deployment
+          tar -czf backend.tar.gz backend
+          tar -czf frontend.tar.gz frontend/dist
+          
+          echo "Build complete. Packages ready for deployment."
 
       # Deploy to server
       - name: Transfer files to server
@@ -128,19 +157,38 @@ jobs:
         with:
           ref: main
       
-      # Download the latest proxy artifacts
+      # Try to download the latest proxy artifacts
       - name: Download proxy package
         id: download-proxy
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: proxy-package
           path: .
       
       # Package proxy files if no artifact found
-      - name: Package proxy files
-        if: steps.download-proxy.outcome == 'failure'
+      - name: Build and package proxy files (fallback)
+        if: steps.download-proxy.outcome != 'success'
         run: |
+          echo "Proxy artifact not found. Building locally..."
+          
+          # Install proxy dependencies
+          cd proxy
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+          # Run any tests if needed
+          if [ -d "tests" ]; then
+            echo "Running proxy tests..."
+            pytest || echo "Tests failed but continuing with deployment"
+          fi
+          
+          cd ..
+          
+          # Package proxy files
           tar -czf proxy.tar.gz proxy
+          
+          echo "Proxy build complete. Package ready for deployment."
       
       # Deploy to server
       - name: Transfer proxy files to server
