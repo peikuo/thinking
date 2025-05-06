@@ -85,7 +85,9 @@ async def openai_proxy(request: Request):
             logger.info(f"[OPENAI] Request body: {request_body}")
             
             # Use the OpenAI client to make the request
-            response = await openai_client.chat.completions.create(**request_body)
+            # The create method returns a Stream object which is already an async iterator
+            # We don't need to await it
+            response = openai_client.chat.completions.create(**request_body)
             
             # Log the response type
             logger.info(f"[OPENAI] Response type: {type(response)}")
@@ -164,7 +166,9 @@ async def grok_proxy(request: Request):
             logger.info(f"[GROK] Request body: {request_body}")
             
             # Use the OpenAI client to make the request
-            response = await grok_client.chat.completions.create(**request_body)
+            # The create method returns a Stream object which is already an async iterator
+            # We don't need to await it
+            response = grok_client.chat.completions.create(**request_body)
             
             # Log the response type
             logger.info(f"[GROK] Response type: {type(response)}")
