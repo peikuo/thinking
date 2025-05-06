@@ -85,15 +85,15 @@ async def openai_proxy(request: Request):
             logger.info(f"[OPENAI] Request body: {request_body}")
             
             # Use the OpenAI client to make the request
-            # The create method returns a Stream object which is already an async iterator
-            # We don't need to await it
+            # The create method returns a Stream object when stream=True
             response = openai_client.chat.completions.create(**request_body)
             
             # Log the response type
             logger.info(f"[OPENAI] Response type: {type(response)}")
             
             # Use the OpenAI client but don't modify the response structure
-            async for chunk in response:
+            # The Stream object needs to be iterated with for, not async for
+            for chunk in response:
                 # Log the chunk for debugging
                 logger.info(f"[OPENAI] Raw chunk: {chunk}")
                 
@@ -166,14 +166,15 @@ async def grok_proxy(request: Request):
             logger.info(f"[GROK] Request body: {request_body}")
             
             # Use the OpenAI client to make the request
-            # The create method returns a Stream object which is already an async iterator
-            # We don't need to await it
+            # The create method returns a Stream object when stream=True
             response = grok_client.chat.completions.create(**request_body)
             
             # Log the response type
             logger.info(f"[GROK] Response type: {type(response)}")
+            
             # Use the OpenAI client but don't modify the response structure
-            async for chunk in response:
+            # The Stream object needs to be iterated with for, not async for
+            for chunk in response:
                 # Log the chunk for debugging
                 logger.info(f"[GROK] Raw chunk: {chunk}")
                 
