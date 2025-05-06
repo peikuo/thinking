@@ -73,17 +73,22 @@ async def openai_proxy(request: Request):
     if not stream:
         logger.warning("[OPENAI] Only streaming mode is supported.")
         return JSONResponse({"error": "Only streaming mode is supported."}, status_code=400)
-    def event_stream():
+    async def event_stream():
         try:
             logger.info(f"[OPENAI] Streaming ChatCompletion: model={model}")
-            response = openai_client.chat.completions.create(**body, stream=True)
-            for chunk in response:
-                yield json.dumps(chunk).encode("utf-8") + b"\n"
+            response = await openai_client.chat.completions.create(**body, stream=True)
+            async for chunk in response:
+                # Convert the chunk to a properly formatted SSE message
+                yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
             logger.info("[OPENAI] Streaming completed.")
+            # Send a final done message
+            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
         except Exception as e:
             logger.error(f"[OPENAI] Error during streaming: {e}")
-            yield json.dumps({"error": str(e)}).encode("utf-8")
-    return StreamingResponse(event_stream(), media_type="application/json")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
+    
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 @app.api_route("/grok/v1/chat/completions", methods=["POST"])
 async def grok_proxy(request: Request):
@@ -124,17 +129,21 @@ async def grok_proxy(request: Request):
         base_url=grok_api_url
     )
     
-    def event_stream():
+    async def event_stream():
         try:
             logger.info(f"[GROK] Streaming ChatCompletion: model={model}")
             # Use the dedicated Grok client
-            response = grok_client.chat.completions.create(**body, stream=True)
-            for chunk in response:
-                yield json.dumps(chunk).encode("utf-8") + b"\n"
+            response = await grok_client.chat.completions.create(**body, stream=True)
+            async for chunk in response:
+                # Convert the chunk to a properly formatted SSE message
+                yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
                 
             logger.info("[GROK] Streaming completed.")
+            # Send a final done message
+            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
         except Exception as e:
             logger.error(f"[GROK] Error during streaming: {e}")
-            yield json.dumps({"error": str(e)}).encode("utf-8")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
     
-    return StreamingResponse(event_stream(), media_type="application/json")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
