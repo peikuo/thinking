@@ -129,15 +129,26 @@ export function useConversations() {
 
   const createNewConversation = useCallback(() => {
     const newId = uuidv4();
-    setConversations(prev => [{
+    const newConversation = {
       id: newId,
       title: "New Conversation",
       messages: [],
       timestamp: Date.now()
-    }, ...prev]);
+    };
+    
+    // Update state with the new conversation
+    setConversations(prev => [newConversation, ...prev]);
+    
+    // Set this as the active conversation
     setActiveConversationId(newId);
+    
     return newId;
   }, []);
+
+  // Save conversations to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
+  }, [conversations]);
 
   const selectConversation = useCallback((id: string) => {
     setActiveConversationId(id);

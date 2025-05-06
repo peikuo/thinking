@@ -42,13 +42,11 @@ const IndexContent: React.FC = () => {
 const Index: React.FC = () => {
   return (
     <SidebarProvider>
-      <LanguageProvider>
-        <ModeProvider>
-          <AppProvider>
-            <IndexContent />
-          </AppProvider>
-        </ModeProvider>
-      </LanguageProvider>
+      <ModeProvider>
+        <AppProvider>
+          <IndexContent />
+        </AppProvider>
+      </ModeProvider>
     </SidebarProvider>
   );
 };
