@@ -54,12 +54,12 @@ async def openai_proxy(request: Request):
     if not openai_api_url:
         logger.warning("[OPENAI] Using default API URL")
         openai_api_url = "https://api.openai.com/v1"
-    
-    # We'll use httpx directly instead of the OpenAI client
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+        
+    # Create the OpenAI client
+    openai_client = OpenAI(
+        api_key=api_key,
+        base_url=openai_api_url
+    )
     try:
         body = await request.json()
     except Exception as e:
