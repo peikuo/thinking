@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 
 import httpx
 import openai
+from openai import OpenAI
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -44,8 +45,10 @@ async def openai_proxy(request: Request):
         logger.warning("[OPENAI] Missing or invalid Authorization header.")
         return JSONResponse({"error": "Missing or invalid Authorization header."}, status_code=401)
     api_key = auth_header.split(" ", 1)[1]
-    openai.api_key = api_key
-    openai.api_base = MODEL_CONFIGS["openai"]["url"]
+    openai_client = OpenAI(
+        api_key=api_key,
+        base_url=MODEL_CONFIGS["openai"]["url"]
+    )
     try:
         body = await request.json()
     except Exception as e:
@@ -62,7 +65,7 @@ async def openai_proxy(request: Request):
     def event_stream():
         try:
             logger.info(f"[OPENAI] Streaming ChatCompletion: model={model}")
-            response = openai.ChatCompletion.create(**body, stream=True)
+            response = openai_client.chat.completions.create(**body, stream=True)
             for chunk in response:
                 yield json.dumps(chunk).encode("utf-8") + b"\n"
             logger.info("[OPENAI] Streaming completed.")
@@ -75,4 +78,51 @@ async def openai_proxy(request: Request):
 async def grok_proxy(request: Request):
     logger.info(f"[GROK] Request: path={request.url.path}, headers={{k: v for k, v in request.headers.items() if k.lower() != 'authorization'}}, client={request.client}")
     auth_header = request.headers.get("authorization")
-    # ... (rest of the grok_proxy code)
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        logger.warning("[GROK] Missing or invalid Authorization header.")
+        return JSONResponse({"error": "Missing or invalid Authorization header."}, status_code=401)
+    
+    api_key = auth_header.split(" ", 1)[1]
+    grok_api_url = MODEL_CONFIGS["grok"]["url"]
+    
+    if not grok_api_url:
+        logger.error("[GROK] API URL not configured.")
+        return JSONResponse({"error": "Grok API URL not configured."}, status_code=500)
+    
+    try:
+        body = await request.json()
+    except Exception as e:
+        logger.error(f"[GROK] Invalid JSON body: {e}")
+        return JSONResponse({"error": "Invalid JSON body."}, status_code=400)
+    
+    model = body.get("model")
+    stream = body.get("stream", False)
+    
+    if not model:
+        logger.warning("[GROK] Missing model parameter.")
+        return JSONResponse({"error": "Missing model parameter."}, status_code=400)
+    
+    if not stream:
+        logger.warning("[GROK] Only streaming mode is supported.")
+        return JSONResponse({"error": "Only streaming mode is supported."}, status_code=400)
+    
+    # Create a separate OpenAI client instance for Grok API
+    grok_client = OpenAI(
+        api_key=api_key,
+        base_url=grok_api_url
+    )
+    
+    def event_stream():
+        try:
+            logger.info(f"[GROK] Streaming ChatCompletion: model={model}")
+            # Use the dedicated Grok client
+            response = grok_client.chat.completions.create(**body, stream=True)
+            for chunk in response:
+                yield json.dumps(chunk).encode("utf-8") + b"\n"
+                
+            logger.info("[GROK] Streaming completed.")
+        except Exception as e:
+            logger.error(f"[GROK] Error during streaming: {e}")
+            yield json.dumps({"error": str(e)}).encode("utf-8")
+    
+    return StreamingResponse(event_stream(), media_type="application/json")
