@@ -74,7 +74,6 @@ async def openai_proxy(request: Request):
         return JSONResponse({"error": "Only streaming mode is supported."}, status_code=400)
     async def event_stream():
         try:
-            logger.info(f"[OPENAI] Streaming ChatCompletion: model={model}")
             # Create a copy of the body to avoid modifying the original
             request_body = body.copy()
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
@@ -91,6 +90,7 @@ async def openai_proxy(request: Request):
                 chunk_json = chunk.model_dump()
                 # The client expects SSE format with 'data: ' prefix
                 yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
+                # Ensure each chunk is sent immediately
             # Send a final done message
             yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
@@ -98,7 +98,11 @@ async def openai_proxy(request: Request):
             yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
     
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(), 
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 @app.api_route("/grok/v1/chat/completions", methods=["POST"])
 async def grok_proxy(request: Request):
@@ -141,7 +145,6 @@ async def grok_proxy(request: Request):
     
     async def event_stream():
         try:
-            logger.info(f"[GROK] Streaming ChatCompletion: model={model}")
             # Create a copy of the body to avoid modifying the original
             request_body = body.copy()
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
@@ -158,6 +161,7 @@ async def grok_proxy(request: Request):
                 chunk_json = chunk.model_dump()
                 # The client expects SSE format with 'data: ' prefix
                 yield f"data: {json.dumps(chunk_json)}\n\n".encode("utf-8")
+                # Ensure each chunk is sent immediately
             # Send a final done message
             yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
@@ -165,4 +169,8 @@ async def grok_proxy(request: Request):
             yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
     
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(), 
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
