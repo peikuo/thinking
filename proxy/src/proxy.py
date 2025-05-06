@@ -80,8 +80,14 @@ async def openai_proxy(request: Request):
             request_body = body.copy()
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
             request_body["stream"] = True
+            
+            # Log the request body
+            logger.info(f"[OPENAI] Request body: {request_body}")
+            
+            # Use the OpenAI client to make the request
             response = await openai_client.chat.completions.create(**request_body)
-            # Log the raw response type
+            
+            # Log the response type
             logger.info(f"[OPENAI] Response type: {type(response)}")
             
             async for chunk in response:
@@ -109,6 +115,7 @@ async def openai_proxy(request: Request):
         except Exception as e:
             logger.error(f"[OPENAI] Error during streaming: {e}")
             error_msg = f"Error: {str(e)}"
+            logger.error(f"[OPENAI] Error message: {error_msg}")
             yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
     
@@ -156,19 +163,37 @@ async def grok_proxy(request: Request):
     async def event_stream():
         try:
             logger.info(f"[GROK] Streaming ChatCompletion: model={model}")
-            # Use the dedicated Grok client
             # Create a copy of the body to avoid modifying the original
             request_body = body.copy()
             # Ensure stream is set to True (it's already in the body, but we want to be explicit)
             request_body["stream"] = True
+            
+            # Log the request body
+            logger.info(f"[GROK] Request body: {request_body}")
+            
+            # Use the OpenAI client to make the request
             response = await grok_client.chat.completions.create(**request_body)
+            
+            # Log the response type
+            logger.info(f"[GROK] Response type: {type(response)}")
             async for chunk in response:
+                # Log each chunk received from Grok
+                logger.info(f"[GROK] Raw chunk: {chunk}")
+                logger.info(f"[GROK] Chunk type: {type(chunk)}")
+                
                 # Format the response to match what the client expects
                 if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
                     delta = chunk.choices[0].delta
+                    logger.info(f"[GROK] Delta: {delta}")
+                    
                     if hasattr(delta, 'content') and delta.content:
                         content = delta.content
-                        yield f"data: {json.dumps({'content': content, 'model': 'grok'})}\n\n".encode("utf-8")
+                        logger.info(f"[GROK] Content: {content}")
+                        
+                        # Format the response for the client
+                        formatted_response = f"data: {json.dumps({'content': content, 'model': 'grok'})}\n\n".encode("utf-8")
+                        logger.info(f"[GROK] Sending to client: {formatted_response}")
+                        yield formatted_response
                 
             logger.info("[GROK] Streaming completed.")
             # Send a final done message
@@ -176,6 +201,7 @@ async def grok_proxy(request: Request):
         except Exception as e:
             logger.error(f"[GROK] Error during streaming: {e}")
             error_msg = f"Error: {str(e)}"
+            logger.error(f"[GROK] Error message: {error_msg}")
             yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n".encode("utf-8")
             yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
     
