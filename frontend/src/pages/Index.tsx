@@ -16,6 +16,7 @@ const IndexContent: React.FC = () => {
     selectConversation,
     deleteConversation,
     renameConversation,
+    clearAllConversations,
     sidebarOpen,
     toggleSidebar,
     loading,
@@ -35,6 +36,7 @@ const IndexContent: React.FC = () => {
       onRenameConversation={renameConversation}
       onToggleSidebar={toggleSidebar}
       onSubmitPrompt={handleSubmitPrompt}
+      clearAllConversations={clearAllConversations}
     />
   );
 };

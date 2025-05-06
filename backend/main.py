@@ -3,6 +3,10 @@ import sys
 import time
 from typing import Dict
 
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -31,6 +35,35 @@ except ImportError:
     from backend.utils.logger import archive_old_logs, logger
     from backend.utils.middleware import RequestLoggingMiddleware
     print("Using absolute imports")
+
+# Initialize Sentry SDK
+# You'll need to replace this with your actual Sentry DSN
+sentry_dsn = os.getenv("SENTRY_DSN", "")
+if sentry_dsn:
+    # Configure Sentry with more conservative settings to avoid serialization issues
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[
+            # Use only the FastApiIntegration to avoid conflicts
+            FastApiIntegration(transaction_style="endpoint"),
+            # Removed StarletteIntegration to avoid duplicate middleware
+        ],
+        # More conservative sampling rate
+        traces_sample_rate=0.2,
+        # Disable performance profiling initially
+        profiles_sample_rate=0.0,
+        # Set a reasonable max request body size
+        max_request_body_size='medium',
+        # Disable HTTP context to avoid serialization issues
+        default_integrations=False,
+        # Environment name
+        environment=get_current_env(),
+        # Increase timeout for network operations
+        shutdown_timeout=5.0,
+    )
+    logger.info("Sentry integration initialized with conservative settings")
+else:
+    logger.warning("Sentry DSN not provided, error tracking disabled")
 
 app = FastAPI(title="Thinking API", description="API for the Thinking project")
 

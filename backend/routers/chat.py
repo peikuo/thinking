@@ -2,6 +2,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
+import sentry_sdk
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -19,6 +20,7 @@ try:
                                        call_grok, call_openai, call_qwen,
                                        decode_api_key, generate_summary)
     from ..utils.model_prompts import get_model_prompt
+    from ..utils.sentry_helpers import track_errors, capture_exception
 except (ImportError, ValueError):
     # For running from project root with module prefix
     from backend.env_config import get_api_key
@@ -29,12 +31,14 @@ except (ImportError, ValueError):
                                              call_qwen, decode_api_key,
                                              generate_summary)
     from backend.utils.model_prompts import get_model_prompt
+    from backend.utils.sentry_helpers import track_errors, capture_exception
 
 # Create the router
 chat_router = APIRouter(prefix="/api/chat")
 
 # Summary generation endpoint
 @chat_router.post("/summary")
+@track_errors
 async def generate_model_summary(request: SummaryRequest):
     """
     Generate a summary comparing responses from different models.
@@ -46,6 +50,9 @@ async def generate_model_summary(request: SummaryRequest):
         Streaming or non-streaming summary response
     """
     try:
+        # Set Sentry tags for better error tracking
+        sentry_sdk.set_tag("feature", "summary")
+        sentry_sdk.set_tag("language", request.language)
         if request.stream:
             # For streaming, we need to create an async generator function
             async def summary_stream_generator():
@@ -77,17 +84,38 @@ async def generate_model_summary(request: SummaryRequest):
             )
             return result
     except Exception as e:
+        # Capture exception with additional context
+        extra_context = {
+            "language": request.language,
+            "streaming": request.stream,
+            "model_count": len(request.responses),
+            "question_length": len(request.question)
+        }
+        capture_exception(e, extra_context)
         logger.error(f"Summary generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Summary generation error: {str(e)}")
 
 # Individual model API endpoints
 @chat_router.post("/openai")
+@track_errors
 async def chat_openai(request: ChatRequest, req: Request):
     try:
+        # Set Sentry tags for better error tracking
+        sentry_sdk.set_tag("model", "openai")
+        sentry_sdk.set_tag("mode", "chat")
+        
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         user_openai_key = decode_api_key(req, "X-OpenAI-API-Key")
         return await call_openai(messages, user_openai_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
+        # Capture exception with additional context
+        extra_context = {
+            "language": request.language,
+            "streaming": request.stream,
+            "message_count": len(request.messages)
+        }
+        capture_exception(e, extra_context)
+        logger.error(f"OpenAI chat API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @chat_router.post("/grok")

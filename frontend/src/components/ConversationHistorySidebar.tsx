@@ -23,6 +23,7 @@ interface ConversationHistorySidebarProps {
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
   onRenameConversation: (id: string, newTitle: string) => void;
+  clearAllConversations: () => void;
 }
 
 const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
@@ -32,6 +33,7 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
   onSelectConversation,
   onDeleteConversation,
   onRenameConversation,
+  clearAllConversations
 }) => {
   const { t } = useLanguage();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -41,6 +43,8 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
   const [activeTab, setActiveTab] = useState('today');
   // Track which sections are collapsed
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // State for clear all confirmation dialog
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
   
   // Group conversations by relative time periods
   const groupedConversations = useMemo(() => {
@@ -151,7 +155,7 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
   
   // Render a conversation item in OpenAI style
   const renderConversationItem = (conversation: Conversation) => (
-    <SidebarMenuItem key={conversation.id}>
+    <SidebarMenuItem key={conversation.id} className="group relative">
       {editingConversationId === conversation.id ? (
         <div className="flex items-center w-full pl-3 pr-10 py-2">
           <input
@@ -192,6 +196,20 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
       <p>{t('noHistoryYet')}</p>
     </div>
   );
+
+  // Handle clear all conversations
+  const handleClearAllClick = () => {
+    setClearAllDialogOpen(true);
+  };
+
+  const handleConfirmClearAll = () => {
+    clearAllConversations();
+    setClearAllDialogOpen(false);
+  };
+
+  const handleCancelClearAll = () => {
+    setClearAllDialogOpen(false);
+  };
 
   return (
     <Sidebar 
@@ -259,7 +277,17 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
       </SidebarContent>
       
       <SidebarFooter className="px-4 py-2 text-xs text-gray-500 border-t border-gray-200">
-        <p>{t('storedLocally')}</p>
+        <div className="flex justify-between items-center">
+          <p>{t('storedLocally')}</p>
+          <button
+            onClick={handleClearAllClick}
+            className="text-red-500 hover:text-red-700 ml-2 flex items-center text-[10px]"
+            title={t('clearAllHistory')}
+          >
+            <Trash2 className="h-3 w-3 mr-0.5" />
+            {t('clearAllHistory')}
+          </button>
+        </div>
       </SidebarFooter>
 
       {conversationToDelete && (
@@ -267,9 +295,19 @@ const ConversationHistorySidebar: React.FC<ConversationHistorySidebarProps> = ({
           isOpen={deleteDialogOpen}
           onClose={handleCancelDelete}
           onConfirm={handleConfirmDelete}
-          title={conversationToDelete.title}
+          title={t('deleteConversation')}
+          description={t('deleteConversationConfirm')}
         />
       )}
+
+      {/* Clear All Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={clearAllDialogOpen}
+        onClose={handleCancelClearAll}
+        onConfirm={handleConfirmClearAll}
+        title={t('clearAllHistory')}
+        description={t('clearAllHistoryConfirm')}
+      />
     </Sidebar>
   );
 };

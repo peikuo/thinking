@@ -106,12 +106,12 @@ async def main():
     
     # Define the models and their API functions
     all_models = {
-        "doubao": ("Doubao", call_doubao),
-        "glm": ("GLM", call_glm),
+        # "doubao": ("Doubao", call_doubao),
+        # "glm": ("GLM", call_glm),
         "openai": ("OpenAI", call_openai),
-        "grok": ("Grok", call_grok),
-        "qwen": ("Qwen", call_qwen),
-        "deepseek": ("DeepSeek", call_deepseek)
+        # "grok": ("Grok", call_grok),
+        # "qwen": ("Qwen", call_qwen),
+        # "deepseek": ("DeepSeek", call_deepseek)
     }
     
     # Test specific model or all models

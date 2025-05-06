@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-export default {
+const config: Config = {
 	darkMode: ["class"],
 	content: [
 		"./pages/**/*.{ts,tsx}",
@@ -148,7 +148,10 @@ export default {
 		}
 	},
 	plugins: [
+		// @ts-ignore
 		require("tailwindcss-animate"),
+		// @ts-ignore
+		require("@tailwindcss/typography"),
 		function({ addUtilities, theme }: { addUtilities: Function, theme: Function }) {
 			const animationDelayUtilities = Object.entries(theme('animationDelay')).map(([key, value]) => {
 				return {
@@ -158,4 +161,6 @@ export default {
 			addUtilities(animationDelayUtilities);
 		},
 	],
-} satisfies Config;
+};
+
+export default config;

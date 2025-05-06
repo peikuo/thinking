@@ -21,6 +21,7 @@ interface MainLayoutProps {
   onDeleteConversation: (id: string) => void;
   onRenameConversation: (id: string, newTitle: string) => void;
   onSubmitPrompt: (prompt: string) => void;
+  clearAllConversations: () => void;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -34,7 +35,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   onSelectConversation,
   onDeleteConversation,
   onRenameConversation,
-  onSubmitPrompt
+  onSubmitPrompt,
+  clearAllConversations
 }) => {
   const { mode } = useMode();
   const { t } = useLanguage();
@@ -66,6 +68,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           onSelectConversation={onSelectConversation}
           onDeleteConversation={onDeleteConversation}
           onRenameConversation={onRenameConversation}
+          clearAllConversations={clearAllConversations}
         />
         
         <MainContent 

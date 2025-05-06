@@ -14,17 +14,21 @@ export async function requestSequentialDiscussion(
     throw new Error("No models specified for discussion");
   }
 
+  // Initialize with the user's prompt
   const messages = [{ role: "user", content: prompt }];
   const allResponses: Record<string, string> = {};
   let previousModel: string | null = null;
   let previousResponse: string | null = null;
+  
+  // Keep track of the full conversation history
+  const conversationHistory = [...messages];
 
   // Process models in sequence
   for (const model of modelOrder) {
     try {
       const response = await callDiscussModel(
         model,
-        messages,
+        conversationHistory, // Use the full conversation history
         previousModel,
         previousResponse,
         apiKeys,
@@ -46,6 +50,12 @@ export async function requestSequentialDiscussion(
         if (onModelResponse) {
           onModelResponse(model, response.content);
         }
+        
+        // Add the assistant's response to the conversation history
+        conversationHistory.push({
+          role: "assistant",
+          content: `[${model}] ${response.content}`
+        });
         
         // Update previous values for the next iteration
         previousModel = model;

@@ -1,0 +1,199 @@
+name: Manual Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Component to deploy'
+        required: true
+        default: 'thinking'
+        type: choice
+        options:
+          - thinking
+          - proxy
+          - both
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy-thinking:
+    runs-on: ubuntu-latest
+    if: inputs.deploy_target == 'thinking' || inputs.deploy_target == 'both'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: main
+      
+      # Download the latest artifacts from the build workflow
+      - name: Download backend package
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: Build and Test Pipeline
+          name: backend-package
+          path: .
+          
+      - name: Download frontend package
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: Build and Test Pipeline
+          name: frontend-package
+          path: .
+
+      # Deploy to server
+      - name: Transfer files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "backend.tar.gz,frontend.tar.gz"
+          target: "/home/deploy"
+          overwrite: true
+          
+      # Deploy on server
+      - name: Deploy Thinking application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            # Set up deployment directories
+            mkdir -p /home/deploy/deploy_new/backend /home/deploy/deploy_new/frontend/dist
+            
+            # Extract files
+            cd /home/deploy
+            tar -xzf backend.tar.gz -C /home/deploy/deploy_new
+            tar -xzf frontend.tar.gz -C /home/deploy/deploy_new
+            rm backend.tar.gz frontend.tar.gz
+            
+            # Backup .env file if it exists
+            if [ -f /home/thinking/thinking/backend/.env ]; then
+                cp /home/thinking/thinking/backend/.env /home/deploy/backend.env.backup
+            fi
+            
+            # Clean target directories (excluding .env.backup)
+            sudo find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
+            sudo find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
+            
+            # Deploy files
+            sudo cp -r /home/deploy/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
+            sudo cp -r /home/deploy/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
+            
+            # Restore .env file if backup exists
+            if [ -f /home/deploy/backend.env.backup ]; then
+                sudo cp /home/deploy/backend.env.backup /home/thinking/thinking/backend/.env
+                rm /home/deploy/backend.env.backup
+            fi
+            
+            # Verify environment variables in .env file
+            echo "Verifying required environment variables..."
+            required_vars=("OPENAI_API_KEY" "OPENAI_API_URL" "OPENAI_MODEL" 
+                          "GROK_API_KEY" "GROK_API_URL" "GROK_MODEL" 
+                          "QWEN_API_KEY" "QWEN_API_URL" "QWEN_MODEL" 
+                          "DEEPSEEK_API_KEY" "DEEPSEEK_API_URL" "DEEPSEEK_MODEL" 
+                          "GLM_API_KEY" "GLM_API_URL" "GLM_MODEL" 
+                          "DOUBAO_API_KEY" "DOUBAO_API_URL" "DOUBAO_MODEL")
+            
+            for var in "${required_vars[@]}"; do
+              if ! grep -q "^$var=" /home/thinking/thinking/backend/.env; then
+                echo "Warning: $var is missing from .env file"
+              fi
+            done
+            
+            # Fix permissions after deployment
+            sudo chown -R nginx:nginx /home/thinking/thinking/frontend/dist
+            sudo chmod -R 755 /home/thinking/thinking/frontend/dist
+            
+            # Clean up
+            rm -rf /home/deploy/deploy_new
+            
+            # Restart services automatically
+            sudo systemctl restart thinking-backend
+            sudo systemctl reload nginx
+            
+            echo "Thinking deployment complete. Services have been automatically restarted."
+            
+  deploy-proxy:
+    runs-on: ubuntu-latest
+    if: inputs.deploy_target == 'proxy' || inputs.deploy_target == 'both'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: main
+      
+      # Download the latest proxy artifacts
+      - name: Download proxy package
+        id: download-proxy
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: Proxy CI/CD
+          name: proxy-package
+          path: .
+          if_no_artifact_found: warn
+      
+      # Package proxy files if no artifact found
+      - name: Package proxy files
+        if: steps.download-proxy.outcome == 'failure'
+        run: |
+          tar -czf proxy.tar.gz proxy
+      
+      # Deploy to server
+      - name: Transfer proxy files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "proxy.tar.gz"
+          target: "/home/deploy"
+          overwrite: true
+          
+      # Deploy proxy on server
+      - name: Deploy Proxy service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            # Set up deployment directories
+            mkdir -p /home/deploy/deploy_new/proxy
+            
+            # Extract files
+            cd /home/deploy
+            tar -xzf proxy.tar.gz -C /home/deploy/deploy_new
+            rm proxy.tar.gz
+            
+            # Backup proxy .env file if it exists
+            if [ -f /home/thinking/proxy/.env ]; then
+                cp /home/thinking/proxy/.env /home/deploy/proxy.env.backup
+            fi
+            
+            # Clean target directory
+            sudo find /home/thinking/proxy -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
+            
+            # Deploy files
+            sudo cp -r /home/deploy/deploy_new/proxy/* /home/thinking/proxy/ 2>/dev/null || true
+            
+            # Restore .env file if backup exists
+            if [ -f /home/deploy/proxy.env.backup ]; then
+                sudo cp /home/deploy/proxy.env.backup /home/thinking/proxy/.env
+                rm /home/deploy/proxy.env.backup
+            fi
+            
+            # Clean up
+            rm -rf /home/deploy/deploy_new
+            
+            # Restart proxy service
+            sudo systemctl restart thinking-proxy
+            
+            echo "Proxy deployment complete. Service has been automatically restarted."

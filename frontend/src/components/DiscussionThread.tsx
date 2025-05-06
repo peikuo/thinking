@@ -93,7 +93,9 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
   const totalSteps = modelOrder.length;
   
   // Calculate current progress more accurately
-  const completedSteps = loading ? currentStep : modelOrder.length;
+  // When loading, use currentStep (which is now properly updated in useDiscussMode)
+  // When not loading, show all steps as completed
+  const completedSteps = loading ? currentStep : Object.keys(responses).length || modelOrder.length;
   
   // Effect to handle summary visibility based on new prompts
   useEffect(() => {

@@ -96,12 +96,16 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
         </pre>
       );
     },
-    table: ({ children }) => <div className="overflow-x-auto my-4 w-full"><table className="w-full border-collapse">{children}</table></div>,
-    thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
-    tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
-    tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
-    th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>,
-    td: ({ children }) => <td className="px-4 py-3 text-base whitespace-normal break-words">{children}</td>
+    pre: ({ children }: any) => {
+      // Special handling for pre blocks to preserve ASCII art and diagrams
+      return <div className="whitespace-pre overflow-x-auto font-mono text-sm bg-gray-100 p-4 rounded-md my-4">{children}</div>;
+    },
+    table: ({ children }) => <div className="overflow-x-auto my-4 w-full"><table className="w-full border-collapse border-2 border-gray-300 table-auto">{children}</table></div>,
+    thead: ({ children }) => <thead className="bg-gray-100">{children}</thead>,
+    tbody: ({ children }) => <tbody className="divide-y divide-gray-300">{children}</tbody>,
+    tr: ({ children }) => <tr className="border-b border-gray-300 hover:bg-gray-50">{children}</tr>,
+    th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300 last:border-r-0 bg-gray-100">{children}</th>,
+    td: ({ children }) => <td className="px-4 py-3 text-sm whitespace-normal break-words border-r border-gray-300 last:border-r-0">{children}</td>
   }), []);
   
   return (
@@ -135,7 +139,7 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
             Error: {error}
           </div>
         ) : (
-          <div className="prose prose-base max-w-none dark:prose-invert prose-table:overflow-x-auto prose-table:w-full prose-img:rounded-md prose-img:mx-auto">
+          <div className="prose prose-base max-w-none dark:prose-invert prose-table:overflow-x-auto prose-table:w-full prose-img:rounded-md prose-img:mx-auto markdown-body">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}

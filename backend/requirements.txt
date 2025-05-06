@@ -9,3 +9,4 @@ gunicorn==21.2.0
 python-multipart==0.0.7
 json-logging==1.3.0
 pytest
+sentry-sdk==2.22.0

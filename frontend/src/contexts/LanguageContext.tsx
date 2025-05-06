@@ -275,6 +275,22 @@ const translations: Translations = {
   conversationExported: {
     en: "Conversation has been exported as markdown",
     zh: "对话已导出为 markdown 格式"
+  },
+  clearAllHistory: {
+    en: "Clear History",
+    zh: "清空历史"
+  },
+  clearAllHistoryConfirm: {
+    en: "Are you sure you want to clear all conversation history? This action cannot be undone.",
+    zh: "确定要清空所有对话历史吗？此操作无法撤销。"
+  },
+  deleteConversation: {
+    en: "Delete Conversation",
+    zh: "删除对话"
+  },
+  deleteConversationConfirm: {
+    en: "Are you sure you want to delete this conversation? This action cannot be undone.",
+    zh: "确定要删除此对话吗？此操作无法撤销。"
   }
 };
 

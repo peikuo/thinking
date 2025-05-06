@@ -3,6 +3,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
+import sentry_sdk
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -19,7 +20,8 @@ try:
     from ..utils.model_helpers import (call_deepseek, call_doubao, call_glm,
                                        call_grok, call_openai, call_qwen,
                                        decode_api_key)
-    from ..utils.model_prompts import get_model_prompt
+    from ..utils.model_prompts import get_model_prompt, DISCUSS_PROMPTS
+    from ..utils.sentry_helpers import track_errors, capture_exception
 except (ImportError, ValueError):
     # For running from project root with module prefix
     from backend.env_config import get_api_key
@@ -28,7 +30,8 @@ except (ImportError, ValueError):
     from backend.utils.model_helpers import (call_deepseek, call_doubao,
                                              call_glm, call_grok, call_openai,
                                              call_qwen, decode_api_key)
-    from backend.utils.model_prompts import get_model_prompt
+    from backend.utils.model_prompts import get_model_prompt, DISCUSS_PROMPTS
+    from backend.utils.sentry_helpers import track_errors, capture_exception
 
 # Create a request model for discussion mode
 class DiscussRequest(BaseModel):
@@ -46,56 +49,46 @@ def format_discuss_messages(messages, model_name, previous_model=None, previous_
     """
     Format messages for discussion mode by adding system instructions
     and previous model responses for sequential answering.
+    
+    This function now handles the full conversation history, ensuring models
+    have context from previous exchanges.
     """
-    # Base system message
-    if language == "zh":
-        system_content = f"你是 {model_name} 模型。你是一位深思熟虑、善于分析的专家。"
-    else:
-        system_content = f"You are the {model_name} model. You are a thoughtful, analytical expert."
+    # Get base system message template
+    system_content = DISCUSS_PROMPTS["base"][language].format(model_name=model_name)
     
     # If there's a previous response, ask this model to analyze it
     if previous_response and previous_model:
-        if language == "zh":
-            system_content += f"\n\n{previous_model} 模型已经回答了这个问题。他们的回答是:\n\n\"\"\"{previous_response}\"\"\"\n\n"
-            system_content += "请遵循以下步骤进行回应：\n\n"
-            system_content += "1. **分析前一个回答**：首先，仔细分析上面的回答，指出其中的优点、不足和可能存在的盲点。评估其逻辑性、全面性和准确性。\n"
-            system_content += "2. **提供你的视角**：结合前一个回答中的有价值观点，提供你自己独特的见解。特别关注前一个回答中未充分探讨的方面。\n"
-            system_content += "3. **深入探讨**：对问题进行更深层次的分析，考虑不同角度、潜在影响和长期后果。\n"
-            system_content += "4. **给出我的方案**：如果适用，提供具体、可操作的建议或解决方案。\n"
-            system_content += "5. **总结关键点**：最后，总结你的主要观点和见解，强调与前一个回答的不同之处。\n\n"
-            system_content += "你的回答应该全面、深入、有洞察力，并且能够展示你独特的思考方式。避免简单重复前一个回答的内容。"
-        else:
-            system_content += f"\n\n{previous_model} has already answered this question. Their response was:\n\n\"\"\"{previous_response}\"\"\"\n\n"
-            system_content += "Please follow these steps in your response:\n\n"
-            system_content += "1. **Analyze the previous response**: First, carefully analyze the above response, identifying its strengths, limitations, and potential blind spots. Evaluate its logical coherence, comprehensiveness, and accuracy.\n"
-            system_content += "2. **Provide your perspective**: Incorporate valuable insights from the previous response while offering your unique viewpoint. Pay special attention to aspects that weren't fully explored in the previous answer.\n"
-            system_content += "3. **Deepen the analysis**: Examine the question at a deeper level, considering different angles, potential implications, and long-term consequences.\n"
-            system_content += "4. **Present my solution**: If applicable, provide specific, actionable advice or solutions.\n"
-            system_content += "5. **Summarize key points**: Finally, summarize your main points and insights, highlighting how they differ from the previous response.\n\n"
-            system_content += "Your answer should be comprehensive, insightful, and demonstrate your unique thinking process. Avoid simply repeating content from the previous response."
+        # Add the analyze_previous template
+        analyze_template = DISCUSS_PROMPTS["analyze_previous"][language]
+        system_content += analyze_template.format(
+            previous_model=previous_model,
+            previous_response=previous_response
+        )
     else:
         # First model doesn't need to analyze previous responses but should still be comprehensive
+        system_content += DISCUSS_PROMPTS["first_model"][language]
+    
+    # Add instructions about conversation history
+    if len(messages) > 1:  # If there's conversation history
         if language == "zh":
-            system_content += "\n\n请遵循以下步骤回答用户的问题：\n\n"
-            system_content += "1. **全面理解问题**：首先确保你完全理解了问题的各个方面和潜在的复杂性。\n"
-            system_content += "2. **提供深入分析**：对问题进行多角度、多层次的分析，考虑不同的观点和可能的影响。\n"
-            system_content += "3. **引用相关知识**：适当引用相关领域的知识、理论或最佳实践来支持你的观点。\n"
-            system_content += "4. **给出我的方案**：如果适用，提供明确、可操作的建议或解决方案。\n"
-            system_content += "5. **总结关键见解**：最后，总结你的主要观点和见解。\n\n"
-            system_content += "你的回答应该全面、深入、有洞察力，并且能够展示你作为专业模型的思考能力。"
+            system_content += "\n\n请注意，消息历史记录包含了之前的对话。请考虑这些历史记录，以便提供连贯的回应。"
         else:
-            system_content += "\n\nPlease follow these steps to answer the user's question:\n\n"
-            system_content += "1. **Understand the question fully**: First ensure you comprehend all aspects of the question and its potential complexities.\n"
-            system_content += "2. **Provide in-depth analysis**: Analyze the question from multiple perspectives and levels, considering different viewpoints and possible implications.\n"
-            system_content += "3. **Reference relevant knowledge**: Where appropriate, reference relevant domain knowledge, theories, or best practices to support your points.\n"
-            system_content += "4. **Present my solution**: If applicable, provide clear, actionable advice or solutions.\n"
-            system_content += "5. **Summarize key insights**: Finally, summarize your main points and insights.\n\n"
-            system_content += "Your response should be comprehensive, thoughtful, and demonstrate your capabilities as a sophisticated model."
+            system_content += "\n\nPlease note that the message history contains previous exchanges. Consider this history to provide a coherent response."
     
     system_message = {"role": "system", "content": system_content}
     
+    # Process messages to ensure proper formatting
+    processed_messages = []
+    for msg in messages:
+        # Ensure we have a proper message format
+        processed_msg = {
+            "role": msg.get("role") if isinstance(msg, dict) else msg.role,
+            "content": msg.get("content") if isinstance(msg, dict) else msg.content
+        }
+        processed_messages.append(processed_msg)
+    
     # Insert system message at the beginning
-    formatted_messages = [system_message] + messages
+    formatted_messages = [system_message] + processed_messages
     
     return formatted_messages
 
@@ -157,8 +150,13 @@ Write as if you're having a conversation with the reader. Your summary should be
 
 # Individual model API endpoints for discussion mode
 @discuss_router.post("/openai")
+@track_errors
 async def discuss_openai(request: DiscussRequest, req: Request):
     try:
+        # Set Sentry transaction name for better tracking
+        sentry_sdk.set_tag("model", "openai")
+        sentry_sdk.set_tag("mode", "discuss")
+        
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         formatted_messages = format_discuss_messages(
             messages, 
@@ -170,6 +168,14 @@ async def discuss_openai(request: DiscussRequest, req: Request):
         user_openai_key = decode_api_key(req, "X-OpenAI-API-Key")
         return await call_openai(formatted_messages, user_openai_key, use_streaming=request.stream, language=request.language)
     except Exception as e:
+        # Capture exception with additional context
+        extra_context = {
+            "language": request.language,
+            "streaming": request.stream,
+            "message_count": len(request.messages),
+            "has_previous_response": request.previous_response is not None
+        }
+        capture_exception(e, extra_context)
         logger.error(f"OpenAI discuss API error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 

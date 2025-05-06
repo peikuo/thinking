@@ -1,5 +1,5 @@
 
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useRef, useEffect } from "react";
 import { ConversationMessage } from "@/types/models";
 import ModelResponseCard from "./ModelResponseCard";
 import ComparisonSummary from "./ComparisonSummary";
@@ -14,122 +14,146 @@ interface ConversationThreadProps {
 
 const ConversationThread = memo(({ messages }: ConversationThreadProps) => {
   const { layout } = useLayout();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { summaryLoading, streamingContent, isStreaming } = useApp();
-  const threadEndRef = React.useRef<HTMLDivElement>(null);
-  
+  const threadEndRef = useRef<HTMLDivElement>(null);
+
   // Auto-scroll to the latest message when messages change
-  React.useEffect(() => {
+  useEffect(() => {
     if (messages.length > 0) {
       threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length]);
-  
+
   // Debug logging for streaming state
-  React.useEffect(() => {
+  useEffect(() => {
     if (isStreaming) {
       console.log('ConversationThread - isStreaming:', isStreaming);
       console.log('ConversationThread - streamingContent:', streamingContent);
     }
   }, [isStreaming, streamingContent]);
-  
-  // Return early if no messages
-  if (messages.length === 0) {
-    return null;
-  }
-  
-  // Helper function to render model responses based on layout
-  const renderModelResponses = (message: ConversationMessage, index: number, currentLayout: string, isLatestMessage: boolean) => {
 
-    if (currentLayout === 'default') {
-      // Default layout - each model response in its own row
-      return (
-        <>
-          {message.modelResponses?.map((response, i) => {
-            // Skip rendering if this message has selectedModels and this model is not in the list
-            if (message.selectedModels && !message.selectedModels.includes(response.model)) {
-              return null;
-            }
-            
-            return (
-              <ModelResponseCard 
-                key={`${index}-${i}`} 
-                response={response} 
-                streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
-                isStreaming={isStreaming && isLatestMessage}
-              />
-            );
-          })}
-          
-          {message.summary ? (
-            <ComparisonSummary 
-              summary={message.summary} 
-              streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
-              isStreaming={isStreaming && isLatestMessage}
-            />
-          ) : summaryLoading && (
-            <ComparisonSummary 
-              summary={{ content: "" }} 
-              loading={true}
-              streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
-              isStreaming={isStreaming && isLatestMessage}
-            />
-          )}
-        </>
-      );
-    } else {
-      // Compact layout - 2 models per row, summary in its own row
-      // For compact layout, show all models in a grid without filtering by type
-      console.log('ConversationThread - Language:', language);
-      console.log('ConversationThread - Available responses:', message.modelResponses?.map(r => r.model));
-      
-      return (
-        <>
-          {message.modelResponses && message.modelResponses.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Show all models in a grid */}
-              {message.modelResponses.map((response, i) => (
-                <ModelResponseCard 
-                  key={`${index}-model-${i}`} 
-                  response={response} 
+  // Helper function to render model responses based on layout
+  const renderModelResponses = useMemo(() => {
+    return (message: ConversationMessage, index: number, currentLayout: string, isLatestMessage: boolean) => {
+      if (currentLayout === 'default') {
+        // Default layout - each model response in its own row
+        return (
+          <>
+            {message.modelResponses?.map((response, i) => {
+              // Skip rendering if this message has selectedModels and this model is not in the list
+              if (message.selectedModels && !message.selectedModels.includes(response.model)) {
+                return null;
+              }
+
+              return (
+                <ModelResponseCard
+                  key={`${index}-${i}`}
+                  response={response}
                   streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
                   isStreaming={isStreaming && isLatestMessage}
                 />
-              ))}
+              );
+            })}
+
+            {/* Show summary for this message if it has one and multiple model responses */}
+            {message.summary && message.modelResponses && message.modelResponses.length > 1 && (
+              <div className="mt-8">
+                <ComparisonSummary
+                  summary={message.summary}
+                  loading={summaryLoading && isLatestMessage}
+                  streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
+                  isStreaming={isStreaming && isLatestMessage}
+                />
+              </div>
+            )}
+          </>
+        );
+      } else if (currentLayout === 'grid') {
+        // Grid layout - responses in a grid
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {message.modelResponses?.map((response, i) => {
+                // Skip rendering if this message has selectedModels and this model is not in the list
+                if (message.selectedModels && !message.selectedModels.includes(response.model)) {
+                  return null;
+                }
+
+                return (
+                  <ModelResponseCard
+                    key={`${index}-${i}`}
+                    response={response}
+                    streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
+                    isStreaming={isStreaming && isLatestMessage}
+                  />
+                );
+              })}
             </div>
-          )}
-          
-          {/* Third row: Summary */}
-          {message.summary ? (
-            <div className="mt-4">
-              <ComparisonSummary 
-                summary={message.summary} 
-                streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
-                isStreaming={isStreaming && isLatestMessage}
-              />
+
+            {/* Show summary for this message if it has one and multiple model responses */}
+            {message.summary && message.modelResponses && message.modelResponses.length > 1 && (
+              <div className="mt-8">
+                <ComparisonSummary
+                  summary={message.summary}
+                  loading={summaryLoading && isLatestMessage}
+                  streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
+                  isStreaming={isStreaming && isLatestMessage}
+                />
+              </div>
+            )}
+          </>
+        );
+      } else {
+        // Comparison layout - side by side
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {message.modelResponses?.map((response, i) => {
+                // Skip rendering if this message has selectedModels and this model is not in the list
+                if (message.selectedModels && !message.selectedModels.includes(response.model)) {
+                  return null;
+                }
+
+                return (
+                  <ModelResponseCard
+                    key={`${index}-${i}`}
+                    response={response}
+                    streamingContent={isStreaming && isLatestMessage ? streamingContent[response.model as keyof StreamingState] : undefined}
+                    isStreaming={isStreaming && isLatestMessage}
+                  />
+                );
+              })}
             </div>
-          ) : summaryLoading && (
-            <div className="mt-4">
-              <ComparisonSummary 
-                summary={{ content: "" }} 
-                loading={true}
-                streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
-                isStreaming={isStreaming && isLatestMessage}
-              />
-            </div>
-          )}
-        </>
-      );
-    }
-  };
-  
+
+            {/* Show summary for this message if it has one and multiple model responses */}
+            {message.summary && message.modelResponses && message.modelResponses.length > 1 && (
+              <div className="mt-8">
+                <ComparisonSummary
+                  summary={message.summary}
+                  loading={summaryLoading && isLatestMessage}
+                  streamingContent={isStreaming && isLatestMessage ? streamingContent.summary : undefined}
+                  isStreaming={isStreaming && isLatestMessage}
+                />
+              </div>
+            )}
+          </>
+        );
+      }
+    };
+  }, [layout, t, summaryLoading, streamingContent, isStreaming]);
+
   // Memoize the rendering of messages to prevent unnecessary re-renders
-  const renderedMessages = useMemo(() => {
+  const renderedContent = useMemo(() => {
+    if (messages.length === 0) {
+      return null;
+    }
+
     // Find the last message with model responses to only apply streaming to it
     const lastModelResponseIndex = messages.map((msg, i) => ({ msg, i }))
       .filter(item => item.msg.modelResponses && item.msg.modelResponses.length > 0)
       .pop()?.i;
-      
+
     return messages.map((message, index) => {
       if (message.role === "user") {
         return (
@@ -148,11 +172,11 @@ const ConversationThread = memo(({ messages }: ConversationThreadProps) => {
         );
       }
     });
-  }, [messages, layout, t, summaryLoading, streamingContent, isStreaming]);
-  
+  }, [messages, renderModelResponses, layout, t]);
+
   return (
     <div className="space-y-10">
-      {renderedMessages}
+      {renderedContent}
       <div ref={threadEndRef} />
     </div>
   );

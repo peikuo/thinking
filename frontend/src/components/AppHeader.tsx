@@ -8,6 +8,7 @@ import LayoutSwitcher from "./LayoutSwitcher";
 import ExportButton from "./ExportButton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useApp } from "@/contexts/AppContext";
+import { useNewConversation } from "@/hooks/useNewConversation";
 import {
   Tooltip,
   TooltipContent,
@@ -21,9 +22,12 @@ interface AppHeaderProps {
   sidebarOpen?: boolean;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onNewConversation, onToggleSidebar, sidebarOpen = true }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onNewConversation: _onNewConversation, onToggleSidebar, sidebarOpen = true }) => {
   const { t } = useLanguage();
   const { saveApiKeys } = useApp();
+  
+  // Use our custom hook that handles both discuss and chat modes
+  const handleNewConversation = useNewConversation();
 
   return (
     <header className="sticky top-0 border-b bg-white/90 backdrop-blur-sm z-50 shadow-sm">
@@ -58,7 +62,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onNewConversation, onToggleSideba
           <ExportButton />
           <ApiKeySettings onSaveKeys={saveApiKeys} />
           <Button
-            onClick={onNewConversation}
+            onClick={handleNewConversation}
             variant="outline"
             className="gap-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
           >

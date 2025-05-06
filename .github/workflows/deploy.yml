@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Build and Test Pipeline
 
 on:
   push:
@@ -58,7 +58,8 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
-  deploy:
+  # Upload artifacts for later deployment
+  upload-artifacts:
     needs: build-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -83,63 +84,18 @@ jobs:
         run: |
           tar -czf backend.tar.gz backend
           tar -czf frontend.tar.gz frontend/dist
-
-      # Deploy to server
-      - name: Transfer files to server
-        uses: appleboy/scp-action@v0.1.4
+      
+      # Upload deployment packages as artifacts
+      - name: Upload backend package
+        uses: actions/upload-artifact@v3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: deploy
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "backend.tar.gz,frontend.tar.gz"
-          target: "/home/deploy"
-          overwrite: true
-          
-      # Deploy on server
-      - name: Deploy application
-        uses: appleboy/ssh-action@master
+          name: backend-package
+          path: backend.tar.gz
+          retention-days: 5
+      
+      - name: Upload frontend package
+        uses: actions/upload-artifact@v3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: deploy
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            # Set up deployment directories
-            mkdir -p /home/deploy/deploy_new/backend /home/deploy/deploy_new/frontend/dist
-            
-            # Extract files
-            cd /home/deploy
-            tar -xzf backend.tar.gz -C /home/deploy/deploy_new
-            tar -xzf frontend.tar.gz -C /home/deploy/deploy_new
-            rm backend.tar.gz frontend.tar.gz
-            
-            # Backup .env file if it exists
-            if [ -f /home/thinking/thinking/backend/.env ]; then
-                cp /home/thinking/thinking/backend/.env /home/deploy/backend.env.backup
-            fi
-            
-            # Clean target directories (excluding .env.backup)
-            sudo find /home/thinking/thinking/backend -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
-            sudo find /home/thinking/thinking/frontend/dist -mindepth 1 -delete 2>/dev/null || true
-            
-            # Deploy files
-            sudo cp -r /home/deploy/deploy_new/backend/* /home/thinking/thinking/backend/ 2>/dev/null || true
-            sudo cp -r /home/deploy/deploy_new/frontend/dist/* /home/thinking/thinking/frontend/dist/ 2>/dev/null || true
-            
-            # Restore .env file if backup exists
-            if [ -f /home/deploy/backend.env.backup ]; then
-                sudo cp /home/deploy/backend.env.backup /home/thinking/thinking/backend/.env
-                rm /home/deploy/backend.env.backup
-            fi
-            
-            # Fix permissions after deployment
-            sudo chown -R nginx:nginx /home/thinking/thinking/frontend/dist
-            sudo chmod -R 755 /home/thinking/thinking/frontend/dist
-            
-            # Clean up
-            rm -rf /home/deploy/deploy_new
-            
-            # Restart services automatically
-            sudo systemctl restart thinking-backend
-            sudo systemctl reload nginx
-            
-            echo "Deployment complete. Services have been automatically restarted."
+          name: frontend-package
+          path: frontend.tar.gz
+          retention-days: 5

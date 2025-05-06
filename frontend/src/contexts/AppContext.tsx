@@ -16,6 +16,7 @@ interface AppContextType {
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
   renameConversation: (id: string, newTitle: string) => void;
+  clearAllConversations: () => void;
   
   // API Keys
   apiKeys: ApiKeys;
@@ -57,7 +58,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addUserMessage,
     updateModelResponses,
     updateSummary,
-    removeLastAssistantMessage
+    removeLastAssistantMessage,
+    clearAllConversations
   } = useConversations();
   
   const { apiKeys, saveApiKeys } = useApiKeys();
@@ -137,6 +139,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     selectConversation,
     deleteConversation,
     renameConversation,
+    clearAllConversations,
     
     // API Keys
     apiKeys,

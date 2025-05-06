@@ -16,6 +16,7 @@ interface DeleteConfirmationDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   title?: string;
+  description?: string;
 }
 
 const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
@@ -23,6 +24,7 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
   onClose,
   onConfirm,
   title,
+  description
 }) => {
   const { t } = useLanguage();
 
@@ -32,10 +34,10 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
         <AlertDialogHeader>
           <AlertDialogTitle>{t('deleteConfirmationTitle')}</AlertDialogTitle>
           <AlertDialogDescription>
-            {title 
+            {description || (title 
               ? t('deleteConfirmationWithTitle').replace('{title}', title)
               : t('deleteConfirmation')
-            }
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

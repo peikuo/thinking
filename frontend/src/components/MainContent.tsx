@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ConversationThread from '@/components/ConversationThread';
 import DiscussionThread from '@/components/DiscussionThread';
 import PromptInput from '@/components/PromptInput';
@@ -22,14 +22,15 @@ const MainContent: React.FC<MainContentProps> = ({
   onSubmit
 }) => {
   const { mode } = useMode();
-  const { apiKeys } = useApp();
+  const { apiKeys, activeConversationId } = useApp();
   const { 
     responses: discussResponses, 
     loading: discussLoading, 
     currentStep,
     streamingModel,
     lastPrompt,
-    startDiscussion 
+    startDiscussion,
+    resetDiscussion 
   } = useDiscussMode();
   
   const hasMessages = messages.length > 0;
@@ -37,6 +38,13 @@ const MainContent: React.FC<MainContentProps> = ({
   
   // State for discuss mode prompt, initialize with lastPrompt if available
   const [discussPrompt, setDiscussPrompt] = useState<string>(lastPrompt || "");
+  
+  // Reset discussPrompt when activeConversationId changes (new conversation created)
+  useEffect(() => {
+    if (isDiscussMode) {
+      setDiscussPrompt("");
+    }
+  }, [activeConversationId, isDiscussMode]);
   
   // Handle discuss mode submit
   const handleDiscussSubmit = (prompt: string) => {

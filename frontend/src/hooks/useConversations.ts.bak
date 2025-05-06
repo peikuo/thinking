@@ -11,15 +11,10 @@ export interface Conversation {
 
 // Helper function to generate a title from the first user message
 const generateTitle = (content: string): string => {
-  if (!content || content.trim() === '') {
-    return "New Conversation";
-  }
-  
   // Truncate to first 30 chars or less
   const maxLength = 30;
-  const trimmedContent = content.trim();
-  if (trimmedContent.length <= maxLength) return trimmedContent;
-  return trimmedContent.substring(0, maxLength) + "...";
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength) + "...";
 };
 
 export function useConversations() {
@@ -91,60 +86,54 @@ export function useConversations() {
                       }
                     );
                     
-                    // Update the conversation with the updated model responses
-                    parsed[0] = {
-                      ...mostRecentConv,
-                      messages: [
-                        ...mostRecentConv.messages.slice(0, lastAssistantIndex),
-                        assistantMsg,
-                        ...mostRecentConv.messages.slice(lastAssistantIndex + 1)
-                      ]
-                    };
+                    // Update summary if exists
+                    if (streamingData.summary && streamingData.summary.length > 0) {
+                      assistantMsg.summary = {
+                        content: streamingData.summary
+                      };
+                    }
                   }
                 }
               }
             }
           } catch (e) {
-            console.error("Failed to parse streaming content:", e);
+            console.error('Failed to process streaming content', e);
           }
         }
         
         setConversations(parsed);
         
-        // If there are conversations, set the most recent one as active
+        // Set the active conversation to the most recent one if it exists
         if (parsed.length > 0) {
-          // Sort by timestamp (newest first) and get the first one
-          const sorted = [...parsed].sort((a, b) => b.timestamp - a.timestamp);
-          setActiveConversationId(sorted[0].id);
+          setActiveConversationId(parsed[0].id);
         }
       } catch (e) {
-        console.error("Failed to parse saved conversations:", e);
-        setConversations([]);
+        console.error('Failed to parse saved conversations', e);
       }
     }
   }, []);
-  
-  // Save conversations to localStorage whenever they change
+
+  // Save conversations to localStorage when they change
   useEffect(() => {
-    localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
+    if (conversations.length > 0) {
+      localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
+    }
   }, [conversations]);
-  
+
   // Get current conversation messages
   const activeConversation = activeConversationId 
     ? conversations.find(c => c.id === activeConversationId)
     : null;
   
   const messages = activeConversation?.messages || [];
-  
+
   const createNewConversation = useCallback(() => {
     const newId = uuidv4();
-    const timestamp = Date.now();
-    
     const newConversation = {
       id: newId,
       title: "New Conversation",
       messages: [],
-      timestamp: timestamp
+      timestamp: Date.now()
     };
     
     // Update state with the new conversation
@@ -160,26 +149,30 @@ export function useConversations() {
     
     return newId;
   }, []);
-  
+
+  // Save conversations to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
+  }, [conversations]);
+
   const selectConversation = useCallback((id: string) => {
     setActiveConversationId(id);
   }, []);
-  
+
   const deleteConversation = useCallback((id: string) => {
-    setConversations(prev => {
-      const filtered = prev.filter(c => c.id !== id);
-      
-      // If we're deleting the active conversation, select the next one
-      if (id === activeConversationId && filtered.length > 0) {
-        setActiveConversationId(filtered[0].id);
-      } else if (filtered.length === 0) {
+    setConversations(prev => prev.filter(c => c.id !== id));
+    
+    // If we deleted the active conversation, select the next one
+    if (activeConversationId === id) {
+      const remainingConversations = conversations.filter(c => c.id !== id);
+      if (remainingConversations.length > 0) {
+        setActiveConversationId(remainingConversations[0].id);
+      } else {
         setActiveConversationId(null);
       }
-      
-      return filtered;
-    });
-  }, [activeConversationId]);
-  
+    }
+  }, [activeConversationId, conversations]);
+
   const addUserMessage = useCallback((prompt: string, selectedModels?: string[]) => {
     let currentConversationId = activeConversationId;
     
@@ -202,7 +195,7 @@ export function useConversations() {
     const defaultModels = storedLanguage === 'zh'
       ? ["deepseek", "qwen", "doubao", "glm"]
       : ["openai", "grok", "qwen", "deepseek"];
-    
+      
     // Use selected models if provided, otherwise use language-specific defaults
     const modelsToShow = selectedModels || defaultModels;
     
@@ -256,7 +249,7 @@ export function useConversations() {
     
     return currentConversationId;
   }, [activeConversationId, createNewConversation]);
-  
+
   const updateModelResponses = useCallback((
     conversationId: string,
     modelResponses: ModelResponse[]
@@ -283,8 +276,8 @@ export function useConversations() {
       });
     });
   }, []);
-  
-  // Update just the summary after model responses are rendered
+
+  // New function to update just the summary after model responses are rendered
   const updateSummary = useCallback((
     conversationId: string,
     summary: any
@@ -311,7 +304,7 @@ export function useConversations() {
       });
     });
   }, []);
-  
+
   // Add function to rename a conversation
   const renameConversation = useCallback((id: string, newTitle: string) => {
     setConversations(prev => {
@@ -326,8 +319,8 @@ export function useConversations() {
       });
     });
   }, []);
-  
-  // Remove the last assistant message when an API call fails
+
+  // New function to remove the last assistant message when an API call fails
   const removeLastAssistantMessage = useCallback((conversationId: string) => {
     setConversations(prev => {
       return prev.map(conv => {
@@ -350,42 +343,213 @@ export function useConversations() {
       });
     });
   }, []);
+
+const addUserMessage = useCallback((prompt: string, selectedModels?: string[]) => {
+let currentConversationId = activeConversationId;
   
-  // Clear all conversations and create a new one
-  const clearAllConversations = useCallback(() => {
-    // Create a new conversation
-    const newId = uuidv4();
-    const newConversation = {
-      id: newId,
-      title: "New Conversation",
-      messages: [],
-      timestamp: Date.now()
-    };
-    
-    // Clear all conversations and add the new one
-    setConversations([newConversation]);
-    
-    // Set this as the active conversation
-    setActiveConversationId(newId);
-    
-    // Persist to localStorage
-    localStorage.setItem('ai-comparison-conversations', JSON.stringify([newConversation]));
-    
-    return newId;
-  }, []);
+// Create a new conversation if none is active
+if (!currentConversationId) {
+currentConversationId = createNewConversation();
+}
   
-  return {
-    conversations,
-    activeConversationId,
-    messages,
-    createNewConversation,
-    selectConversation,
-    deleteConversation,
-    renameConversation,
-    addUserMessage,
-    updateModelResponses,
-    updateSummary,
-    removeLastAssistantMessage,
-    clearAllConversations
-  };
+// Add user message
+const userMessage: ConversationMessage = {
+role: "user",
+content: prompt
+};
+  
+// Import language from window.localStorage using the correct key
+// The LanguageContext uses 'ai-comparison-language' as the key
+const storedLanguage = window.localStorage.getItem('ai-comparison-language') || 'en';
+  
+// Determine which models to show based on language and selected models
+const defaultModels = storedLanguage === 'zh'
+? ["deepseek", "qwen", "doubao", "glm"]
+: ["openai", "grok", "qwen", "deepseek"];
+  
+// Use selected models if provided, otherwise use language-specific defaults
+const modelsToShow = selectedModels || defaultModels;
+  
+console.log(`useConversations - Using models for ${storedLanguage} locale:`, modelsToShow);
+  
+// Create placeholders for model responses (only for selected models)
+const loadingResponses: ModelResponse[] = [];
+  
+// Define all possible models
+const allModels = ['openai', 'grok', 'qwen', 'deepseek', 'doubao', 'glm'] as const;
+  
+// Create loading placeholders for all selected models
+allModels.forEach(model => {
+if (modelsToShow.includes(model)) {
+loadingResponses.push({ 
+model: model as 'openai' | 'grok' | 'qwen' | 'deepseek' | 'doubao' | 'glm', 
+content: "", 
+loading: true 
+});
+}
+});
+  
+const assistantMessage: ConversationMessage = {
+role: "assistant",
+content: "",
+modelResponses: loadingResponses,
+selectedModels: modelsToShow
+};
+  
+// Update the conversation with the assistant message
+setConversations(prev => {
+const updated = [...prev];
+const index = updated.findIndex(c => c.id === currentConversationId);
+if (index !== -1) {
+// If this is the first message, update the title
+if (updated[index].messages.length === 0) {
+updated[index].title = generateTitle(prompt);
+}
+  
+// Add the user message
+updated[index].messages.push(userMessage);
+  
+// Add the assistant message with model responses
+updated[index].messages.push(assistantMessage);
+  
+// Update timestamp to current time when adding new messages
+updated[index].timestamp = Date.now();
+}
+return updated;
+});
+  
+return currentConversationId;
+}, [activeConversationId, createNewConversation]);
+
+const updateModelResponses = useCallback((
+conversationId: string,
+modelResponses: ModelResponse[]
+) => {
+setConversations(prev => {
+return prev.map(conv => {
+if (conv.id === conversationId) {
+const conversationMessages = [...conv.messages];
+const lastMessageIndex = conversationMessages.length - 1;
+  
+if (lastMessageIndex >= 0 && conversationMessages[lastMessageIndex].role === "assistant") {
+conversationMessages[lastMessageIndex] = {
+...conversationMessages[lastMessageIndex],
+modelResponses: modelResponses
+};
+}
+  
+return {
+...conv,
+messages: conversationMessages
+};
+}
+return conv;
+});
+});
+}, []);
+
+// New function to update just the summary after model responses are rendered
+const updateSummary = useCallback((
+conversationId: string,
+summary: any
+) => {
+setConversations(prev => {
+return prev.map(conv => {
+if (conv.id === conversationId) {
+const conversationMessages = [...conv.messages];
+const lastMessageIndex = conversationMessages.length - 1;
+  
+if (lastMessageIndex >= 0 && conversationMessages[lastMessageIndex].role === "assistant") {
+conversationMessages[lastMessageIndex] = {
+...conversationMessages[lastMessageIndex],
+summary: summary
+};
+}
+  
+return {
+...conv,
+messages: conversationMessages
+};
+}
+return conv;
+});
+});
+}, []);
+
+// Add function to rename a conversation
+const renameConversation = useCallback((id: string, newTitle: string) => {
+setConversations(prev => {
+return prev.map(conv => {
+if (conv.id === id) {
+return {
+...conv,
+title: newTitle
+};
+}
+return conv;
+});
+});
+}, []);
+
+// New function to remove the last assistant message when an API call fails
+const removeLastAssistantMessage = useCallback((conversationId: string) => {
+setConversations(prev => {
+return prev.map(conv => {
+if (conv.id === conversationId) {
+// Get all messages except the last assistant message
+const messages = [...conv.messages];
+  
+// Check if the last message is an assistant message
+if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+// Remove the last message (assistant)
+messages.pop();
+}
+  
+return {
+...conv,
+messages
+};
+}
+return conv;
+});
+});
+}, []);
+
+// Clear all conversations and create a new one
+const clearAllConversations = useCallback(() => {
+// Create a new conversation
+const newId = uuidv4();
+const newConversation = {
+id: newId,
+title: "New Conversation",
+messages: [],
+timestamp: Date.now()
+};
+  
+// Clear all conversations and add the new one
+setConversations([newConversation]);
+  
+// Set this as the active conversation
+setActiveConversationId(newId);
+  
+// Persist to localStorage
+localStorage.setItem('ai-comparison-conversations', JSON.stringify([newConversation]));
+  
+return newId;
+}, []);
+
+return {
+conversations,
+activeConversationId,
+messages,
+createNewConversation,
+selectConversation,
+deleteConversation,
+renameConversation,
+addUserMessage,
+updateModelResponses,
+updateSummary,
+removeLastAssistantMessage,
+clearAllConversations
+};
 }
