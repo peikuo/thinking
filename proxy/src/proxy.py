@@ -28,12 +28,15 @@ logger.addHandler(console_handler)
 
 app = FastAPI()
 
+# Hard-coded API URLs for OpenAI and Grok
 MODEL_CONFIGS = {
     "openai": {
-        "url": os.getenv("OPENAI_API_URL"),
+        # Use environment variable if available, otherwise use hard-coded URL
+        "url": os.getenv("OPENAI_API_URL", "https://api.openai.com/v1"),
     },
     "grok": {
-        "url": os.getenv("GROK_API_URL"),
+        # Use environment variable if available, otherwise use hard-coded URL
+        "url": os.getenv("GROK_API_URL", "https://api.x.ai/v1"),
     },
 }
 
@@ -45,9 +48,17 @@ async def openai_proxy(request: Request):
         logger.warning("[OPENAI] Missing or invalid Authorization header.")
         return JSONResponse({"error": "Missing or invalid Authorization header."}, status_code=401)
     api_key = auth_header.split(" ", 1)[1]
+    
+    # Get the API URL, using the hard-coded default if not available
+    openai_api_url = MODEL_CONFIGS["openai"]["url"]
+    if not openai_api_url:
+        logger.warning("[OPENAI] Using default API URL")
+        openai_api_url = "https://api.openai.com/v1"
+        
+    # Create the client
     openai_client = OpenAI(
         api_key=api_key,
-        base_url=MODEL_CONFIGS["openai"]["url"]
+        base_url=openai_api_url
     )
     try:
         body = await request.json()
@@ -83,11 +94,12 @@ async def grok_proxy(request: Request):
         return JSONResponse({"error": "Missing or invalid Authorization header."}, status_code=401)
     
     api_key = auth_header.split(" ", 1)[1]
-    grok_api_url = MODEL_CONFIGS["grok"]["url"]
     
+    # Get the API URL, using the hard-coded default if not available
+    grok_api_url = MODEL_CONFIGS["grok"]["url"]
     if not grok_api_url:
-        logger.error("[GROK] API URL not configured.")
-        return JSONResponse({"error": "Grok API URL not configured."}, status_code=500)
+        logger.warning("[GROK] Using default API URL")
+        grok_api_url = "https://api.x.ai/v1"
     
     try:
         body = await request.json()
