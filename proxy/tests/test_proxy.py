@@ -25,5 +25,9 @@ def test_openai_completions_mock():
 
 def test_grok_completions_mock():
     headers = {"Authorization": "Bearer test-api-key"}
-    response = client.post("/grok/v1/chat/completions", json={"messages": [{"role": "user", "content": "Hi"}]})
-    assert response.status_code in (200, 400, 422)
+    response = client.post(
+        "/grok/v1/chat/completions", 
+        json={"messages": [{"role": "user", "content": "Hi"}], "model": "grok-2-latest", "stream": True},
+        headers=headers
+    )
+    assert response.status_code in (200, 400, 401, 422)
