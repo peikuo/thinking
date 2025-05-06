@@ -82,15 +82,21 @@ async def openai_proxy(request: Request):
             request_body["stream"] = True
             response = await openai_client.chat.completions.create(**request_body)
             async for chunk in response:
-                # Convert the chunk to a properly formatted SSE message
-                yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
+                # Format the response to match what the client expects
+                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        content = delta.content
+                        yield f"data: {json.dumps({'content': content, 'model': 'openai'})}\n\n".encode("utf-8")
+            
             logger.info("[OPENAI] Streaming completed.")
             # Send a final done message
-            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
             logger.error(f"[OPENAI] Error during streaming: {e}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
-            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
+            error_msg = f"Error: {str(e)}"
+            yield f"data: {json.dumps({'content': error_msg, 'model': 'openai', 'error': True})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'content': '', 'model': 'openai', 'done': True})}\n\n".encode("utf-8")
     
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -143,15 +149,20 @@ async def grok_proxy(request: Request):
             request_body["stream"] = True
             response = await grok_client.chat.completions.create(**request_body)
             async for chunk in response:
-                # Convert the chunk to a properly formatted SSE message
-                yield f"data: {json.dumps(chunk.model_dump())}\n\n".encode("utf-8")
+                # Format the response to match what the client expects
+                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'delta'):
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        content = delta.content
+                        yield f"data: {json.dumps({'content': content, 'model': 'grok'})}\n\n".encode("utf-8")
                 
             logger.info("[GROK] Streaming completed.")
             # Send a final done message
-            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
         except Exception as e:
             logger.error(f"[GROK] Error during streaming: {e}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
-            yield f"data: {json.dumps({'done': True})}\n\n".encode("utf-8")
+            error_msg = f"Error: {str(e)}"
+            yield f"data: {json.dumps({'content': error_msg, 'model': 'grok', 'error': True})}\n\n".encode("utf-8")
+            yield f"data: {json.dumps({'content': '', 'model': 'grok', 'done': True})}\n\n".encode("utf-8")
     
     return StreamingResponse(event_stream(), media_type="text/event-stream")
