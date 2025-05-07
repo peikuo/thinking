@@ -212,6 +212,19 @@ async def get_llm_response(provider: ProviderType, messages: List[Dict[str, str]
     client = get_client(provider, api_key)
     model_name = get_model(provider)
     
+    # Add system message with language-specific prompt if not already present
+    has_system_message = any(msg.get("role", "") == "system" for msg in messages)
+    if not has_system_message:
+        try:
+            # Try relative import first
+            from ..utils.model_prompts import get_model_prompt
+        except (ImportError, ValueError):
+            # Fall back to absolute import
+            from backend.utils.model_prompts import get_model_prompt
+            
+        system_content = get_model_prompt(provider, language)
+        messages = [{"role": "system", "content": system_content}] + messages
+    
     response = await client.chat.completions.create(
         model=model_name,
         messages=messages,

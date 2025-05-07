@@ -21,6 +21,7 @@ try:
                                        decode_api_key, generate_summary)
     from ..utils.model_prompts import get_model_prompt
     from ..utils.sentry_helpers import track_errors, capture_exception
+    from ..utils.language_utils import detect_language
 except (ImportError, ValueError):
     # For running from project root with module prefix
     from backend.env_config import get_api_key
@@ -32,9 +33,37 @@ except (ImportError, ValueError):
                                              generate_summary)
     from backend.utils.model_prompts import get_model_prompt
     from backend.utils.sentry_helpers import track_errors, capture_exception
+    from backend.utils.language_utils import detect_language
 
 # Create the router
 chat_router = APIRouter(prefix="/api/chat")
+
+# Helper function to detect language from messages
+def detect_language_from_messages(messages, default_language="en"):
+    """
+    Detect language from a list of messages, prioritizing the most recent user message.
+    
+    Args:
+        messages: List of message objects with role and content
+        default_language: Default language to return if no user messages found
+        
+    Returns:
+        Detected language code ('zh' or 'en')
+    """
+    # Find the most recent user message
+    user_messages = [msg.get("content") if isinstance(msg, dict) else msg.content 
+                    for msg in messages 
+                    if (isinstance(msg, dict) and msg.get("role") == "user") or 
+                       (hasattr(msg, "role") and msg.role == "user")]
+    
+    if user_messages:
+        # Detect language from the last user message
+        detected_lang = detect_language(user_messages[-1])
+        if detected_lang != default_language:
+            logger.info(f"Language auto-detected as {detected_lang}")
+        return detected_lang
+    
+    return default_language
 
 # Summary generation endpoint
 @chat_router.post("/summary")
@@ -105,8 +134,14 @@ async def chat_openai(request: ChatRequest, req: Request):
         sentry_sdk.set_tag("mode", "chat")
         
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_openai_key = decode_api_key(req, "X-OpenAI-API-Key")
-        return await call_openai(messages, user_openai_key, use_streaming=request.stream, language=request.language)
+        return await call_openai(messages, user_openai_key, use_streaming=request.stream, language=language)
     except Exception as e:
         # Capture exception with additional context
         extra_context = {
@@ -122,8 +157,14 @@ async def chat_openai(request: ChatRequest, req: Request):
 async def chat_grok(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_grok_key = decode_api_key(req, "X-Grok-API-Key")
-        return await call_grok(messages, user_grok_key, use_streaming=request.stream, language=request.language)
+        return await call_grok(messages, user_grok_key, use_streaming=request.stream, language=language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -131,8 +172,14 @@ async def chat_grok(request: ChatRequest, req: Request):
 async def chat_qwen(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_qwen_key = decode_api_key(req, "X-Qwen-API-Key")
-        return await call_qwen(messages, user_qwen_key, use_streaming=request.stream, language=request.language)
+        return await call_qwen(messages, user_qwen_key, use_streaming=request.stream, language=language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -140,8 +187,14 @@ async def chat_qwen(request: ChatRequest, req: Request):
 async def chat_deepseek(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_deepseek_key = decode_api_key(req, "X-DeepSeek-API-Key")
-        return await call_deepseek(messages, user_deepseek_key, use_streaming=request.stream, language=request.language)
+        return await call_deepseek(messages, user_deepseek_key, use_streaming=request.stream, language=language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -149,8 +202,14 @@ async def chat_deepseek(request: ChatRequest, req: Request):
 async def chat_doubao(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_doubao_key = decode_api_key(req, "X-Doubao-API-Key")
-        return await call_doubao(messages, user_doubao_key, use_streaming=request.stream, language=request.language)
+        return await call_doubao(messages, user_doubao_key, use_streaming=request.stream, language=language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -158,7 +217,13 @@ async def chat_doubao(request: ChatRequest, req: Request):
 async def chat_glm(request: ChatRequest, req: Request):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Auto-detect language if not explicitly set to non-English
+        language = request.language
+        if language == "en":
+            language = detect_language_from_messages(messages, default_language="en")
+            
         user_glm_key = decode_api_key(req, "X-GLM-API-Key")
-        return await call_glm(messages, user_glm_key, use_streaming=request.stream, language=request.language)
+        return await call_glm(messages, user_glm_key, use_streaming=request.stream, language=language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

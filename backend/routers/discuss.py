@@ -22,6 +22,7 @@ try:
                                        decode_api_key)
     from ..utils.model_prompts import get_model_prompt, DISCUSS_PROMPTS
     from ..utils.sentry_helpers import track_errors, capture_exception
+    from ..utils.language_utils import detect_language
 except (ImportError, ValueError):
     # For running from project root with module prefix
     from backend.env_config import get_api_key
@@ -32,6 +33,7 @@ except (ImportError, ValueError):
                                              call_qwen, decode_api_key)
     from backend.utils.model_prompts import get_model_prompt, DISCUSS_PROMPTS
     from backend.utils.sentry_helpers import track_errors, capture_exception
+    from backend.utils.language_utils import detect_language
 
 # Create a request model for discussion mode
 class DiscussRequest(BaseModel):
@@ -43,18 +45,6 @@ class DiscussRequest(BaseModel):
 
 # Create the router
 discuss_router = APIRouter(prefix="/api/discuss")
-
-# Helper function to detect language
-def detect_language(text: str) -> str:
-    """
-    Detect if text is primarily Chinese or English.
-    Returns 'zh' for Chinese, 'en' for English or other languages.
-    """
-    # Simple detection: if more than 10% of characters are Chinese, consider it Chinese
-    chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
-    if chinese_chars / max(len(text), 1) > 0.1:
-        return "zh"
-    return "en"
 
 # Helper function to format messages for discussion mode
 def format_discuss_messages(messages, model_name, previous_model=None, previous_response=None, language="en"):
