@@ -175,12 +175,14 @@ jobs:
           # Install proxy dependencies
           cd proxy
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install uv
+          uv venv .venv
+          uv pip install -r requirements.txt
           
           # Run any tests if needed
           if [ -d "tests" ]; then
             echo "Running proxy tests..."
-            pytest || echo "Tests failed but continuing with deployment"
+            .venv/bin/pytest || echo "Tests failed but continuing with deployment"
           fi
           
           cd ..
@@ -223,7 +225,7 @@ jobs:
             fi
             
             # Clean target directory
-            sudo find /home/thinking/proxy -mindepth 1 -not -name '.env.backup' -delete 2>/dev/null || true
+            sudo find /home/thinking/proxy -mindepth 1 -not -name '.env.backup' -not -name '.venv' -delete 2>/dev/null || true
             
             # Deploy files
             sudo cp -r /home/deploy/deploy_new/proxy/* /home/thinking/proxy/ 2>/dev/null || true
@@ -234,10 +236,25 @@ jobs:
                 rm /home/deploy/proxy.env.backup
             fi
             
+            # Set up virtual environment with uv
+            cd /home/thinking/proxy
+            python3 -m pip install --user uv
+            python3 -m uv venv .venv
+            .venv/bin/uv pip install -r requirements.txt
+            
+            # Fix permissions
+            sudo chown -R deploy:deploy /home/thinking/proxy/.venv
+            sudo chmod -R 755 /home/thinking/proxy/.venv
+            sudo chmod +x /home/thinking/proxy/bin/restart.sh
+            
             # Clean up
             rm -rf /home/deploy/deploy_new
             
             # Restart proxy service
-            sudo systemctl restart thinking-proxy
+            cd /home/thinking/proxy
+            ./bin/restart.sh
             
-            echo "Proxy deployment complete. Service has been automatically restarted."
+            # Also restart the systemd service if it exists (this does need sudo)
+            sudo systemctl restart thinking-proxy || echo "No systemd service found, using script restart instead"
+            
+            echo "Proxy deployment complete. Service has been restarted."
