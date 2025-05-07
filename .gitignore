@@ -52,6 +52,12 @@ build/
 *.swo
 .DS_Store
 
+# AI assistant configuration
+.windsurfrules
+.cascadeignore
+.windsurf-ignore
+.windsurf/
+
 # Logs
 *.log
 logs/
