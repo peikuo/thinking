@@ -248,9 +248,11 @@ jobs:
                 export PATH="$HOME/.local/bin:$PATH"
             fi
             
-            # Create venv with uv and install dependencies
+            # Create venv with uv
             uv venv --python=python3.11 .venv
-            .venv/bin/uv pip install -r requirements.txt
+            
+            # Use the global uv to install packages into the virtual environment
+            uv pip install --python=.venv/bin/python -r requirements.txt
             
             # Fix permissions
             sudo chown -R deploy:deploy /home/deploy/thinking/proxy
