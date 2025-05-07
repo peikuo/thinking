@@ -196,9 +196,9 @@ jobs:
       - name: Transfer proxy files to server
         uses: appleboy/scp-action@v0.1.4
         with:
-          host: ${{ secrets.SERVER_HOST }}
+          host: ${{ secrets.DEPLOY_PROXY_HOST }}
           username: deploy
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}
           source: "proxy.tar.gz"
           target: "/home/deploy"
           overwrite: true
@@ -207,9 +207,9 @@ jobs:
       - name: Deploy Proxy service
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_HOST }}
+          host: ${{ secrets.DEPLOY_PROXY_HOST }}
           username: deploy
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}
           script: |
             # Set up deployment directories
             mkdir -p /home/deploy/deploy_new/proxy
