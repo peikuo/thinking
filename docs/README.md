@@ -10,6 +10,7 @@ Welcome to the documentation for the Thinking Platform, a powerful tool for comp
 - **[Architecture](./architecture/README.md)**: System architecture and design documents
 - **[API](./api/README.md)**: API documentation and usage examples
 - **[Models](./models/README.md)**: Information about supported models and their configuration
+- **[Troubleshooting](./troubleshooting/README.md)**: Common issues and solutions
 
 ## Quick Links
 
@@ -18,6 +19,7 @@ Welcome to the documentation for the Thinking Platform, a powerful tool for comp
 - [Docker Deployment](./deployment/docker.md)
 - [Aliyun Deployment](./deployment/aliyun.md)
 - [Model API Integration](./models/api-integration.md)
+- [Troubleshooting Common Issues](./troubleshooting/README.md)
 
 ## Languages
 
