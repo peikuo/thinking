@@ -44,6 +44,18 @@ class DiscussRequest(BaseModel):
 # Create the router
 discuss_router = APIRouter(prefix="/api/discuss")
 
+# Helper function to detect language
+def detect_language(text: str) -> str:
+    """
+    Detect if text is primarily Chinese or English.
+    Returns 'zh' for Chinese, 'en' for English or other languages.
+    """
+    # Simple detection: if more than 10% of characters are Chinese, consider it Chinese
+    chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
+    if chinese_chars / max(len(text), 1) > 0.1:
+        return "zh"
+    return "en"
+
 # Helper function to format messages for discussion mode
 def format_discuss_messages(messages, model_name, previous_model=None, previous_response=None, language="en"):
     """
@@ -52,7 +64,24 @@ def format_discuss_messages(messages, model_name, previous_model=None, previous_
     
     This function now handles the full conversation history, ensuring models
     have context from previous exchanges.
+    
+    If language is not explicitly provided, it will be detected from the user's messages.
     """
+    # Auto-detect language from user messages if not explicitly provided
+    if language == "en":  # Only try to detect if not explicitly set to non-English
+        # Find the most recent user message
+        user_messages = [msg.get("content") if isinstance(msg, dict) else msg.content 
+                        for msg in messages 
+                        if (isinstance(msg, dict) and msg.get("role") == "user") or 
+                           (hasattr(msg, "role") and msg.role == "user")]
+        
+        if user_messages:
+            # Detect language from the last user message
+            detected_lang = detect_language(user_messages[-1])
+            if detected_lang != language:
+                logger.info(f"Language auto-detected as {detected_lang} for model {model_name}")
+                language = detected_lang
+    
     # Get base system message template
     system_content = DISCUSS_PROMPTS["base"][language].format(model_name=model_name)
     
