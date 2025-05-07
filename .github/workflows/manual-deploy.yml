@@ -214,47 +214,50 @@ jobs:
             # Set up deployment directories
             mkdir -p /home/deploy/deploy_new/proxy
             
+            # Create the target directory if it doesn't exist
+            sudo mkdir -p /home/deploy/thinking/proxy
+            
             # Extract files
             cd /home/deploy
             tar -xzf proxy.tar.gz -C /home/deploy/deploy_new
             rm proxy.tar.gz
             
             # Backup proxy .env file if it exists
-            if [ -f /home/thinking/proxy/.env ]; then
-                cp /home/thinking/proxy/.env /home/deploy/proxy.env.backup
+            if [ -f /home/deploy/thinking/proxy/.env ]; then
+                cp /home/deploy/thinking/proxy/.env /home/deploy/proxy.env.backup
             fi
             
-            # Clean target directory
-            sudo find /home/thinking/proxy -mindepth 1 -not -name '.env.backup' -not -name '.venv' -delete 2>/dev/null || true
+            # Clean target directory but preserve important files
+            sudo find /home/deploy/thinking/proxy -mindepth 1 -not -name '.env.backup' -not -name '.venv' -delete 2>/dev/null || true
             
             # Deploy files
-            sudo cp -r /home/deploy/deploy_new/proxy/* /home/thinking/proxy/ 2>/dev/null || true
+            sudo cp -r /home/deploy/deploy_new/proxy/* /home/deploy/thinking/proxy/ 2>/dev/null || true
             
             # Restore .env file if backup exists
             if [ -f /home/deploy/proxy.env.backup ]; then
-                sudo cp /home/deploy/proxy.env.backup /home/thinking/proxy/.env
+                sudo cp /home/deploy/proxy.env.backup /home/deploy/thinking/proxy/.env
                 rm /home/deploy/proxy.env.backup
             fi
             
-            # Set up virtual environment with uv
-            cd /home/thinking/proxy
-            python3 -m pip install --user uv
-            python3 -m uv venv .venv
-            .venv/bin/uv pip install -r requirements.txt
+            # Set up Python virtual environment (using standard venv instead of uv)
+            cd /home/deploy/thinking/proxy
+            python3 -m venv .venv
+            .venv/bin/pip install --upgrade pip
+            .venv/bin/pip install -r requirements.txt
             
             # Fix permissions
-            sudo chown -R deploy:deploy /home/thinking/proxy/.venv
-            sudo chmod -R 755 /home/thinking/proxy/.venv
-            sudo chmod +x /home/thinking/proxy/bin/restart.sh
+            sudo chown -R deploy:deploy /home/deploy/thinking/proxy
+            sudo chmod -R 755 /home/deploy/thinking/proxy
+            sudo chmod +x /home/deploy/thinking/proxy/bin/restart.sh 2>/dev/null || true
             
             # Clean up
             rm -rf /home/deploy/deploy_new
             
-            # Restart proxy service
-            cd /home/thinking/proxy
-            ./bin/restart.sh
+            # Restart proxy service using the restart script
+            cd /home/deploy/thinking/proxy
+            ./bin/restart.sh 2>/dev/null || echo "Failed to run restart.sh, trying systemd service"
             
-            # Also restart the systemd service if it exists (this does need sudo)
-            sudo systemctl restart thinking-proxy || echo "No systemd service found, using script restart instead"
+            # Also try restarting via systemd if available
+            sudo systemctl restart thinking-proxy 2>/dev/null || echo "No systemd service found"
             
-            echo "Proxy deployment complete. Service has been restarted."
+            echo "Proxy deployment complete. Attempted to restart service."
