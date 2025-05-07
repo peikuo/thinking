@@ -162,8 +162,52 @@ export function useConversations() {
   }, []);
   
   const selectConversation = useCallback((id: string) => {
+    // Set the active conversation ID
     setActiveConversationId(id);
-  }, []);
+    
+    // Find the conversation to check if it's a discuss mode conversation
+    const conversation = conversations.find(c => c.id === id);
+    
+    // If the conversation exists and has the isDiscussMode property
+    if (conversation) {
+      // Get the current mode from localStorage
+      const currentMode = localStorage.getItem('thinking-mode') || 'chat';
+      
+      // Check if we need to switch modes
+      if (conversation.isDiscussMode && currentMode !== 'discuss') {
+        // Switch to discuss mode
+        localStorage.setItem('thinking-mode', 'discuss');
+        // Reload the discuss mode history if needed
+        if (conversation.messages && conversation.messages.length > 0) {
+          // Find user messages to use as the prompt
+          const userMessages = conversation.messages.filter(msg => msg.role === 'user');
+          if (userMessages.length > 0) {
+            const firstUserMsg = userMessages[0].content;
+            // Save the prompt to localStorage for discuss mode
+            localStorage.setItem('thinking-discuss-prompt', firstUserMsg);
+            
+            // If there are assistant responses, save them to discuss responses
+            const assistantMessages = conversation.messages.filter(msg => msg.role === 'assistant');
+            if (assistantMessages.length > 0 && assistantMessages[0].modelResponses) {
+              // Convert modelResponses to the format expected by discuss mode
+              const discussResponses: Record<string, string> = {};
+              assistantMessages[0].modelResponses.forEach(response => {
+                discussResponses[response.model] = response.content;
+              });
+              localStorage.setItem('thinking-discuss-responses', JSON.stringify(discussResponses));
+            }
+          }
+        }
+      } else if (!conversation.isDiscussMode && currentMode !== 'chat') {
+        // Switch to chat mode
+        localStorage.setItem('thinking-mode', 'chat');
+      }
+      
+      // Force a page reload to apply the mode change
+      // This is a simple way to ensure the UI updates correctly
+      window.location.reload();
+    }
+  }, [conversations]);
   
   const deleteConversation = useCallback((id: string) => {
     setConversations(prev => {

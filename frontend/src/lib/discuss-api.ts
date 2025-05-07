@@ -14,18 +14,79 @@ export async function requestSequentialDiscussion(
     throw new Error("No models specified for discussion");
   }
 
-  // Initialize with the user's prompt
-  const messages = [{ role: "user", content: prompt }];
+  // Check if we have a stored conversation history for discuss mode
+  let storedHistory;
+  try {
+    // First check if we're loading an existing conversation from the main conversation storage
+    const savedConversations = localStorage.getItem('ai-comparison-conversations');
+    if (savedConversations) {
+      const conversations = JSON.parse(savedConversations);
+      // Find the most recent discuss mode conversation (should be the first one if we just clicked on it)
+      const discussConversation = conversations.find((conv: any) => conv.isDiscussMode === true);
+      
+      if (discussConversation && discussConversation.messages) {
+        // Extract the conversation history from the discuss mode conversation
+        const userMessages = discussConversation.messages.filter((msg: any) => msg.role === 'user');
+        const assistantMessages = discussConversation.messages.filter((msg: any) => msg.role === 'assistant');
+        
+        // Build the conversation history
+        storedHistory = [];
+        
+        // Add user messages
+        userMessages.forEach((msg: any) => {
+          storedHistory.push({ role: 'user', content: msg.content });
+        });
+        
+        // Add assistant messages if available
+        if (assistantMessages.length > 0 && assistantMessages[0].modelResponses) {
+          assistantMessages[0].modelResponses.forEach((response: any) => {
+            storedHistory.push({ 
+              role: 'assistant', 
+              content: `[${response.model}] ${response.content}` 
+            });
+          });
+        }
+      }
+    }
+    
+    // If we didn't find a history in the main conversation storage, check the discuss-specific storage
+    if (!storedHistory) {
+      const savedDiscussHistory = localStorage.getItem('thinking-discuss-history');
+      if (savedDiscussHistory) {
+        storedHistory = JSON.parse(savedDiscussHistory);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading discuss history:', error);
+  }
+
+  // Initialize with existing history or just the new prompt
+  let messages;
+  let conversationHistory;
+  
+  if (storedHistory && storedHistory.length > 0) {
+    // Use stored history and add the new prompt
+    conversationHistory = [...storedHistory];
+    // Add the new user message if it's not already the last user message
+    const lastUserMsg = conversationHistory.filter(m => m.role === 'user').pop();
+    if (!lastUserMsg || lastUserMsg.content !== prompt) {
+      conversationHistory.push({ role: "user", content: prompt });
+    }
+    messages = conversationHistory;
+  } else {
+    // Start a new conversation
+    messages = [{ role: "user", content: prompt }];
+    conversationHistory = [...messages];
+  }
+  
   const allResponses: Record<string, string> = {};
   let previousModel: string | null = null;
   let previousResponse: string | null = null;
-  
-  // Keep track of the full conversation history
-  const conversationHistory = [...messages];
 
   // Process models in sequence
   for (const model of modelOrder) {
     try {
+      console.log(`Sending conversation history to ${model}:`, conversationHistory);
       const response = await callDiscussModel(
         model,
         conversationHistory, // Use the full conversation history
@@ -56,6 +117,49 @@ export async function requestSequentialDiscussion(
           role: "assistant",
           content: `[${model}] ${response.content}`
         });
+        
+        // Save the updated conversation history
+        try {
+          localStorage.setItem('thinking-discuss-history', JSON.stringify(conversationHistory));
+          
+          // Also update the conversation title in the main conversation storage
+          const savedConversations = localStorage.getItem('ai-comparison-conversations');
+          if (savedConversations) {
+            const conversations = JSON.parse(savedConversations);
+            // Find the most recent discuss mode conversation
+            const discussIndex = conversations.findIndex((conv: any) => conv.isDiscussMode === true);
+            
+            if (discussIndex !== -1) {
+              // Get the first user message as the title
+              const userMessages = conversationHistory.filter((msg: any) => msg.role === 'user');
+              if (userMessages.length > 0) {
+                const firstUserMsg = userMessages[0].content;
+                const title = firstUserMsg.length > 30 ? firstUserMsg.substring(0, 30) + '...' : firstUserMsg;
+                
+                // Update the title
+                conversations[discussIndex].title = title;
+                // Update the messages to include all history
+                conversations[discussIndex].messages = [
+                  ...conversationHistory.filter((msg: any) => msg.role === 'user'),
+                  {
+                    role: 'assistant',
+                    content: Object.values(allResponses).join('\n\n---\n\n'),
+                    modelResponses: Object.entries(allResponses).map(([model, content]) => ({
+                      model,
+                      content,
+                      loading: false
+                    }))
+                  }
+                ];
+                
+                // Save the updated conversations
+                localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error saving discuss history:', error);
+        }
         
         // Update previous values for the next iteration
         previousModel = model;

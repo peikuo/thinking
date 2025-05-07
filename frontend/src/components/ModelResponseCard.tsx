@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw"; // Import rehype-raw to parse HTML tags
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+// Import KaTeX CSS
+import 'katex/dist/katex.min.css';
 import WaveLoadingAnimation from "./WaveLoadingAnimation";
 import { Separator } from "@/components/ui/separator";
 
@@ -141,8 +145,8 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
         ) : (
           <div className="prose prose-base max-w-none dark:prose-invert prose-table:overflow-x-auto prose-table:w-full prose-img:rounded-md prose-img:mx-auto markdown-body">
             <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeKatex]}
               components={markdownComponents}
             >
               {memoizedDisplayContent}

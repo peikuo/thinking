@@ -4,6 +4,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+// Import KaTeX CSS
+import 'katex/dist/katex.min.css';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -196,8 +201,11 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                   
                   {/* Show response content */}
                   {hasResponse && (
-                    <div className="prose prose-slate max-w-none">
-                      <Markdown rehypePlugins={[rehypeRaw]}>
+                    <div className="prose prose-slate max-w-none prose-table:table-auto prose-table:border-collapse prose-td:border prose-td:border-gray-300 prose-td:p-2 prose-th:border prose-th:border-gray-300 prose-th:p-2">
+                      <Markdown 
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeRaw, rehypeKatex]}
+                      >
                         {responses[model]}
                       </Markdown>
                     </div>
@@ -248,8 +256,11 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                 
                 {/* Show summary content */}
                 {summaryContent && (
-                  <div className="prose prose-slate max-w-none">
-                    <Markdown rehypePlugins={[rehypeRaw]}>
+                  <div className="prose prose-slate max-w-none prose-table:table-auto prose-table:border-collapse prose-td:border prose-td:border-gray-300 prose-td:p-2 prose-th:border prose-th:border-gray-300 prose-th:p-2">
+                    <Markdown 
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeRaw, rehypeKatex]}
+                    >
                       {summaryContent}
                     </Markdown>
                   </div>

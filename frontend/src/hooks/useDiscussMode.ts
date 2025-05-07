@@ -23,7 +23,7 @@ export function useDiscussMode() {
   const [lastPrompt, setLastPrompt] = useState<string>('');
   const { language } = useLanguage();
   
-  // Load responses from localStorage on mount
+  // Load responses from localStorage on mount or when activeConversationId changes
   useEffect(() => {
     try {
       const savedResponses = localStorage.getItem(DISCUSS_STORAGE_KEY);
@@ -35,6 +35,31 @@ export function useDiscussMode() {
       
       if (savedPrompt) {
         setLastPrompt(savedPrompt);
+      }
+      
+      // Check if we need to load a specific discuss conversation
+      const savedConversations = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      if (savedConversations) {
+        const conversations = JSON.parse(savedConversations);
+        // Find the active conversation (should be the first one if we just clicked on it)
+        if (conversations.length > 0 && conversations[0].isDiscussMode) {
+          // Get the user prompt
+          const userMessages = conversations[0].messages.filter((msg: any) => msg.role === 'user');
+          if (userMessages.length > 0) {
+            const prompt = userMessages[0].content;
+            setLastPrompt(prompt);
+            
+            // Get model responses if available
+            const assistantMessages = conversations[0].messages.filter((msg: any) => msg.role === 'assistant');
+            if (assistantMessages.length > 0 && assistantMessages[0].modelResponses) {
+              const modelResponses: Record<string, string> = {};
+              assistantMessages[0].modelResponses.forEach((response: any) => {
+                modelResponses[response.model] = response.content;
+              });
+              setResponses(modelResponses);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading discuss responses from localStorage:', error);
