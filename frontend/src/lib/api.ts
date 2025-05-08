@@ -4,13 +4,9 @@ import { ModelResponse, ComparisonSummary, ConversationMessage } from "@/types/m
 // API base URL - using relative path to work in any environment
 const API_BASE_URL = '';  // Empty string means use the current domain
 
-// Debug logging for API requests - remove in production
-console.log('Environment:', import.meta.env.MODE);
-console.log('API Base URL:', API_BASE_URL);
-
-// Add this function to log all API requests
+// Helper function to process API URLs
 const logApiRequest = (url: string) => {
-  console.log(`API Request to: ${url}`);
+  // Simply return the URL without logging in production
   return url;
 };
 
@@ -92,7 +88,7 @@ async function querySingleModel(
                 // Update content and call the callback
                 if (data.content) {
                   fullContent += data.content;
-                  console.log(`Streaming chunk for ${data.model}:`, data.content);
+                  // Process streaming chunk
                   onStreamUpdate?.({ content: data.content, model: data.model });
                 }
               } catch (e) {

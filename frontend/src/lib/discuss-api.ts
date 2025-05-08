@@ -184,7 +184,9 @@ export async function requestDiscussionSummary(
   onStreamUpdate?: (content: string) => void
 ) {
   try {
-    const response = await fetch(`/api/discuss/summary`, {
+    // Use consistent URL pattern for API requests
+    const requestUrl = `/api/discuss/summary`;
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: createHeaders(apiKeys),
       body: JSON.stringify({
@@ -217,8 +219,20 @@ export async function requestDiscussionSummary(
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.substring(6));
+                
+                // Check if this is the end of the stream
+                if (data.done) {
+                  break;
+                }
+                
+                // Handle error in stream
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+                
                 if (data.content) {
                   fullContent += data.content;
+                  // Process streaming summary chunk
                   onStreamUpdate(fullContent);
                 }
               } catch (e) {
@@ -228,12 +242,14 @@ export async function requestDiscussionSummary(
           }
         }
         
-        // Signal that streaming is complete
-        onStreamUpdate(fullContent);
         return { content: fullContent };
       } catch (e) {
         console.error('Error reading stream:', e);
-        throw e;
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error in summary stream';
+        return { content: fullContent, error: errorMessage };
+      } finally {
+        // Always release the reader lock when done
+        reader.releaseLock();
       }
     } else {
       // Non-streaming response
@@ -257,7 +273,9 @@ export async function callDiscussModel(
   onStreamUpdate?: (content: string) => void
 ): Promise<ModelResponse> {
   try {
-    const response = await fetch(`/api/discuss/${model}`, {
+    // Use API_BASE_URL for consistent behavior between environments
+    const requestUrl = `/api/discuss/${model}`;
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: createHeaders(apiKeys),
       body: JSON.stringify({
@@ -291,9 +309,21 @@ export async function callDiscussModel(
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.substring(6));
+                
+                // Check if this is the end of the stream
+                if (data.done) {
+                  break;
+                }
+                
+                // Handle error in stream
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+                
                 if (data.content) {
                   // For new streaming implementation, we're getting delta content
                   fullContent += data.content;
+                  // Process streaming chunk
                   onStreamUpdate(fullContent);
                 }
               } catch (e) {
@@ -303,13 +333,13 @@ export async function callDiscussModel(
           }
         }
         
-        // Signal that streaming is complete for this model
-        onStreamUpdate?.(fullContent);
         return { model, content: fullContent };
       } catch (error) {
-        console.error(`Streaming error for ${model}:`, error);
-        throw error;
+        console.error(`Error in stream for ${model}:`, error);
+        const errorMessage = error instanceof Error ? error.message : `Unknown error with ${model} stream`;
+        return { model, content: fullContent, error: errorMessage };
       } finally {
+        // Always release the reader lock when done
         reader.releaseLock();
       }
     }
