@@ -4,6 +4,16 @@ import { ModelResponse, ComparisonSummary, ConversationMessage } from "@/types/m
 // API base URL - using relative path to work in any environment
 const API_BASE_URL = '';  // Empty string means use the current domain
 
+// Debug logging for API requests - remove in production
+console.log('Environment:', import.meta.env.MODE);
+console.log('API Base URL:', API_BASE_URL);
+
+// Add this function to log all API requests
+const logApiRequest = (url: string) => {
+  console.log(`API Request to: ${url}`);
+  return url;
+};
+
 // Helper function to create API headers with API keys
 export const createHeaders = (apiKeys?: Record<string, string>) => {
   const headers: Record<string, string> = {
@@ -36,7 +46,8 @@ async function querySingleModel(
     // If streaming callback is provided, use streaming mode
     const useStreaming = !!onStreamUpdate;
     
-    const response = await fetch(`${API_BASE_URL}/api/chat/${model}`, {
+    const requestUrl = `${API_BASE_URL}/api/chat/${model}`;
+    const response = await fetch(logApiRequest(requestUrl), {
       method: 'POST',
       headers: createHeaders(apiKeys),
       body: JSON.stringify({ messages, language, stream: useStreaming })
@@ -286,7 +297,8 @@ export async function requestSummary(
     const useStreaming = !!onStreamUpdate;
     
     // Request summary from API
-    const summaryResponse = await fetch(`${API_BASE_URL}/api/chat/summary`, {
+    const summaryUrl = `${API_BASE_URL}/api/chat/summary`;
+    const summaryResponse = await fetch(logApiRequest(summaryUrl), {
       method: 'POST',
       headers: createHeaders(apiKeys),
       body: JSON.stringify({
