@@ -1,13 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
-
-// Initialize mermaid with default configuration
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-  fontFamily: 'sans-serif',
-});
+// Import mermaid dynamically to avoid build issues
+// We'll initialize it when the component mounts
 
 interface MermaidDiagramProps {
   chart: string;
@@ -20,24 +13,37 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ chart }) => {
 
   useEffect(() => {
     if (ref.current && !rendered) {
-      try {
-        // Reset the element content
-        ref.current.innerHTML = chart;
+      // Dynamically import mermaid
+      import('mermaid').then(async (mermaidModule) => {
+        const mermaid = mermaidModule.default;
         
-        // Render the diagram
-        mermaid.run({
-          nodes: [ref.current],
-        }).then(() => {
+        try {
+          // Initialize mermaid with default configuration
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'sans-serif',
+          });
+          
+          // Reset the element content
+          ref.current.innerHTML = chart;
+          
+          // Render the diagram
+          await mermaid.run({
+            nodes: [ref.current],
+          });
+          
           setRendered(true);
           setError(null);
-        }).catch((err) => {
+        } catch (err) {
           console.error('Mermaid rendering error:', err);
           setError('Failed to render diagram. Check your syntax.');
-        });
-      } catch (err) {
-        console.error('Mermaid error:', err);
-        setError('Failed to render diagram. Check your syntax.');
-      }
+        }
+      }).catch((err) => {
+        console.error('Failed to load Mermaid library:', err);
+        setError('Failed to load diagram rendering library.');
+      });
     }
   }, [chart, rendered]);
 

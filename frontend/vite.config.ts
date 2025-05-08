@@ -26,4 +26,12 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ['mermaid']
+  },
+  build: {
+    commonjsOptions: {
+      include: [/mermaid/, /node_modules/]
+    }
+  }
 }));
