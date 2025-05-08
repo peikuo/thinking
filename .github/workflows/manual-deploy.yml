@@ -31,28 +31,42 @@ jobs:
         with:
           ref: main
       
-      # Try to download the latest artifacts from the build workflow
-      - name: Download backend package
-        id: download-backend
-        continue-on-error: true
-        uses: actions/download-artifact@v4
+      # Set up Node.js for frontend build
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          name: backend-package
-          path: .
-          
-      - name: Download frontend package
-        id: download-frontend
-        continue-on-error: true
-        uses: actions/download-artifact@v4
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      # Set up Python for backend
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          name: frontend-package
-          path: .
-          
-      # Build backend if artifact not found
-      - name: Build backend (fallback)
-        if: steps.download-backend.outcome != 'success' || steps.download-frontend.outcome != 'success'
+          python-version: '3.11'
+          cache: 'pip'
+      
+      # Always build the frontend
+      - name: Build frontend
         run: |
-          echo "Artifacts not found. Building packages locally..."
+          echo "Building frontend package..."
+          
+          # Frontend setup and build
+          cd frontend
+          npm ci
+          npm install rehype-raw@7.0.0 remark-math@6.0.0 rehype-katex@7.0.0 katex@0.16.22 --save
+          NODE_ENV=production npm run build
+          cd ..
+          
+          # Package frontend files for deployment
+          tar -czf frontend.tar.gz frontend/dist
+          
+          echo "Frontend build complete."
+      
+      # Build backend
+      - name: Build backend
+        run: |
+          echo "Building backend package..."
           
           # Backend setup
           python -m pip install --upgrade pip
@@ -60,18 +74,10 @@ jobs:
           uv venv .venv
           uv pip install -r backend/requirements.txt
           
-          # Frontend setup
-          cd frontend
-          npm install --no-package-lock
-          npm install rehype-raw@7.0.0 --save
-          NODE_ENV=production npm run build
-          cd ..
-          
-          # Package files for deployment
+          # Package backend files for deployment
           tar -czf backend.tar.gz backend
-          tar -czf frontend.tar.gz frontend/dist
           
-          echo "Build complete. Packages ready for deployment."
+          echo "Backend build complete."
 
       # Deploy to server
       - name: Transfer files to server
