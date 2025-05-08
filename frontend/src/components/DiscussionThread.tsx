@@ -9,6 +9,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 // Import KaTeX CSS
 import 'katex/dist/katex.min.css';
+// Import MermaidDiagram component
+import MermaidDiagram from './MermaidDiagram';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -205,6 +207,18 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                       <Markdown 
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeRaw, rehypeKatex]}
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const value = String(children).replace(/\n$/, '');
+                            
+                            if (match && match[1] === 'mermaid') {
+                              return <MermaidDiagram chart={value} />;
+                            }
+                            
+                            return <code className={className} {...props}>{children}</code>;
+                          }
+                        }}
                       >
                         {responses[model]}
                       </Markdown>
@@ -260,6 +274,18 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                     <Markdown 
                       remarkPlugins={[remarkGfm, remarkMath]}
                       rehypePlugins={[rehypeRaw, rehypeKatex]}
+                      components={{
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const value = String(children).replace(/\n$/, '');
+                          
+                          if (match && match[1] === 'mermaid') {
+                            return <MermaidDiagram chart={value} />;
+                          }
+                          
+                          return <code className={className} {...props}>{children}</code>;
+                        }
+                      }}
                     >
                       {summaryContent}
                     </Markdown>

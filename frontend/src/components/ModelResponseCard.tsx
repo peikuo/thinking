@@ -10,6 +10,8 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 // Import KaTeX CSS
 import 'katex/dist/katex.min.css';
+// Import MermaidDiagram component
+import MermaidDiagram from './MermaidDiagram';
 import WaveLoadingAnimation from "./WaveLoadingAnimation";
 import { Separator } from "@/components/ui/separator";
 
@@ -91,6 +93,14 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
     blockquote: ({ children }) => <blockquote className="border-l-4 border-flow-primary pl-4 italic my-4">{children}</blockquote>,
     hr: () => <Separator className="bg-gradient-to-r from-transparent via-gray-200 to-transparent opacity-50 my-4" />,
     code: ({ inline, className, children, ...props }: any) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const value = String(children).replace(/\n$/, '');
+      
+      // Handle Mermaid diagrams
+      if (match && match[1] === 'mermaid') {
+        return <MermaidDiagram chart={value} />;
+      }
+      
       if (inline) {
         return <code className="bg-gray-100 px-1 py-0.5 rounded text-sm" {...props}>{children}</code>;
       }
