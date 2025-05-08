@@ -26,8 +26,8 @@ export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
-  // Load conversations from localStorage on mount
-  useEffect(() => {
+  // Function to load conversations from localStorage
+  const loadConversationsFromStorage = useCallback(() => {
     const savedConversations = localStorage.getItem('ai-comparison-conversations');
     if (savedConversations) {
       try {
@@ -124,6 +124,22 @@ export function useConversations() {
     }
   }, []);
   
+  // Load conversations on mount
+  useEffect(() => {
+    loadConversationsFromStorage();
+    
+    // Listen for conversation updates from discuss mode
+    const handleConversationsUpdated = () => {
+      loadConversationsFromStorage();
+    };
+    
+    window.addEventListener('thinking-conversations-updated', handleConversationsUpdated);
+    
+    return () => {
+      window.removeEventListener('thinking-conversations-updated', handleConversationsUpdated);
+    };
+  }, [loadConversationsFromStorage]);
+  
   // Save conversations to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('ai-comparison-conversations', JSON.stringify(conversations));
@@ -168,16 +184,24 @@ export function useConversations() {
     // Find the conversation to check if it's a discuss mode conversation
     const conversation = conversations.find(c => c.id === id);
     
-    // If the conversation exists and has the isDiscussMode property
+    // If the conversation exists
     if (conversation) {
+      // Dispatch a custom event to notify components about conversation selection
+      window.dispatchEvent(new CustomEvent('thinking-conversation-selected', {
+        detail: { conversationId: id }
+      }));
+      
       // Get the current mode from localStorage
       const currentMode = localStorage.getItem('thinking-mode') || 'chat';
+      let modeChanged = false;
       
       // Check if we need to switch modes
       if (conversation.isDiscussMode && currentMode !== 'discuss') {
         // Switch to discuss mode
         localStorage.setItem('thinking-mode', 'discuss');
-        // Reload the discuss mode history if needed
+        modeChanged = true;
+        
+        // Prepare discuss mode data
         if (conversation.messages && conversation.messages.length > 0) {
           // Find user messages to use as the prompt
           const userMessages = conversation.messages.filter(msg => msg.role === 'user');
@@ -201,11 +225,22 @@ export function useConversations() {
       } else if (!conversation.isDiscussMode && currentMode !== 'chat') {
         // Switch to chat mode
         localStorage.setItem('thinking-mode', 'chat');
+        modeChanged = true;
       }
       
-      // Force a page reload to apply the mode change
-      // This is a simple way to ensure the UI updates correctly
-      window.location.reload();
+      // Only update if the mode actually changed
+      if (modeChanged) {
+        // Dispatch a custom event to notify the app that the mode has changed
+        window.dispatchEvent(new CustomEvent('thinking-mode-changed', {
+          detail: { newMode: conversation.isDiscussMode ? 'discuss' : 'chat', conversationId: id }
+        }));
+        
+        // Dispatch an event to notify that conversations have been updated
+        // This will trigger a refresh of the conversation list and content in the UI
+        window.dispatchEvent(new CustomEvent('thinking-conversations-updated', {
+          detail: { conversations, activeConversationId: id }
+        }));
+      }
     }
   }, [conversations]);
   
@@ -395,27 +430,26 @@ export function useConversations() {
     });
   }, []);
   
-  // Clear all conversations and create a new one
+  // Clear all conversations completely
   const clearAllConversations = useCallback(() => {
-    // Create a new conversation
-    const newId = uuidv4();
-    const newConversation = {
-      id: newId,
-      title: "New Conversation",
-      messages: [],
-      timestamp: Date.now()
-    };
+    // Clear all conversations
+    setConversations([]);
     
-    // Clear all conversations and add the new one
-    setConversations([newConversation]);
+    // Clear active conversation
+    setActiveConversationId(null);
     
-    // Set this as the active conversation
-    setActiveConversationId(newId);
+    // Persist empty array to localStorage
+    localStorage.setItem('ai-comparison-conversations', JSON.stringify([]));
     
-    // Persist to localStorage
-    localStorage.setItem('ai-comparison-conversations', JSON.stringify([newConversation]));
+    // Also clear discuss mode data
+    localStorage.removeItem('thinking-discuss-prompt');
+    localStorage.removeItem('thinking-discuss-responses');
+    localStorage.removeItem('thinking-streaming-content');
     
-    return newId;
+    // Dispatch a custom event to notify discuss mode to reset
+    window.dispatchEvent(new CustomEvent('thinking-clear-all'));
+    
+    return null;
   }, []);
   
   return {

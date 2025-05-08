@@ -24,6 +24,24 @@ export const ModeProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
+  // Listen for mode change events from conversation selection
+  useEffect(() => {
+    const handleModeChange = (event: CustomEvent) => {
+      const { newMode } = event.detail;
+      if (newMode && (newMode === 'chat' || newMode === 'discuss')) {
+        setModeState(newMode as Mode);
+      }
+    };
+
+    // Add event listener for custom mode change event
+    window.addEventListener('thinking-mode-changed', handleModeChange as EventListener);
+    
+    // Clean up event listener on unmount
+    return () => {
+      window.removeEventListener('thinking-mode-changed', handleModeChange as EventListener);
+    };
+  }, []);
+
   // Custom setMode function that updates both state and localStorage
   const setMode = (newMode: Mode) => {
     setModeState(newMode);

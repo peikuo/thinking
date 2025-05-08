@@ -23,7 +23,7 @@ export function useDiscussMode() {
   const [lastPrompt, setLastPrompt] = useState<string>('');
   const { language } = useLanguage();
   
-  // Load responses from localStorage on mount or when activeConversationId changes
+  // Load responses from localStorage when the component mounts
   useEffect(() => {
     try {
       const savedResponses = localStorage.getItem(DISCUSS_STORAGE_KEY);
@@ -36,34 +36,71 @@ export function useDiscussMode() {
       if (savedPrompt) {
         setLastPrompt(savedPrompt);
       }
-      
-      // Check if we need to load a specific discuss conversation
-      const savedConversations = localStorage.getItem(CONVERSATION_STORAGE_KEY);
-      if (savedConversations) {
-        const conversations = JSON.parse(savedConversations);
-        // Find the active conversation (should be the first one if we just clicked on it)
-        if (conversations.length > 0 && conversations[0].isDiscussMode) {
-          // Get the user prompt
-          const userMessages = conversations[0].messages.filter((msg: any) => msg.role === 'user');
-          if (userMessages.length > 0) {
-            const prompt = userMessages[0].content;
-            setLastPrompt(prompt);
-            
-            // Get model responses if available
-            const assistantMessages = conversations[0].messages.filter((msg: any) => msg.role === 'assistant');
-            if (assistantMessages.length > 0 && assistantMessages[0].modelResponses) {
-              const modelResponses: Record<string, string> = {};
-              assistantMessages[0].modelResponses.forEach((response: any) => {
-                modelResponses[response.model] = response.content;
-              });
-              setResponses(modelResponses);
-            }
-          }
-        }
-      }
     } catch (error) {
       console.error('Error loading discuss responses from localStorage:', error);
     }
+  }, []);
+  
+  // Listen for conversation selection events and clear all events
+  useEffect(() => {
+    // Handle conversation selection
+    const handleConversationSelected = (event: Event) => {
+      try {
+        const customEvent = event as CustomEvent;
+        if (customEvent.detail && customEvent.detail.conversationId) {
+          const { conversationId } = customEvent.detail;
+          
+          // Load the selected conversation
+          const savedConversations = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+          if (savedConversations) {
+            const conversations = JSON.parse(savedConversations);
+            // Find the conversation by ID
+            const selectedConversation = conversations.find((c: any) => c.id === conversationId);
+            
+            if (selectedConversation && selectedConversation.isDiscussMode) {
+              // Get the user prompt
+              const userMessages = selectedConversation.messages.filter((msg: any) => msg.role === 'user');
+              if (userMessages.length > 0) {
+                const prompt = userMessages[0].content;
+                setLastPrompt(prompt);
+                localStorage.setItem(DISCUSS_PROMPT_KEY, prompt);
+                
+                // Get model responses if available
+                const assistantMessages = selectedConversation.messages.filter((msg: any) => msg.role === 'assistant');
+                if (assistantMessages.length > 0 && assistantMessages[0].modelResponses) {
+                  const modelResponses: Record<string, string> = {};
+                  assistantMessages[0].modelResponses.forEach((response: any) => {
+                    modelResponses[response.model] = response.content;
+                  });
+                  setResponses(modelResponses);
+                  localStorage.setItem(DISCUSS_STORAGE_KEY, JSON.stringify(modelResponses));
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling conversation selection:', error);
+      }
+    };
+    
+    // Handle clear all event
+    const handleClearAll = () => {
+      // Reset discuss mode state
+      setResponses({});
+      setCurrentStep(0);
+      setStreamingModel(null);
+      setLastPrompt('');
+    };
+    
+    // Add event listeners
+    window.addEventListener('thinking-conversation-selected', handleConversationSelected);
+    window.addEventListener('thinking-clear-all', handleClearAll);
+    
+    return () => {
+      window.removeEventListener('thinking-conversation-selected', handleConversationSelected);
+      window.removeEventListener('thinking-clear-all', handleClearAll);
+    };
   }, []);
   
   // Save responses to localStorage when they change
@@ -120,6 +157,12 @@ export function useDiscussMode() {
         // Add to conversations and save
         const updatedConversations = [newDiscussion, ...conversations];
         localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updatedConversations));
+        
+        // Dispatch an event to notify that conversations have been updated
+        // This will trigger a refresh of the conversation list in the UI
+        window.dispatchEvent(new CustomEvent('thinking-conversations-updated', {
+          detail: { conversations: updatedConversations }
+        }));
       }
     } catch (error) {
       console.error('Error saving to conversation history:', error);
