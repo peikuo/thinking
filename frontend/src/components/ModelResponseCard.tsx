@@ -21,18 +21,36 @@ interface ModelResponseCardProps {
   isStreaming?: boolean;
 }
 
-const modelNames = {
-  openai: "OpenAI",
-  grok: "Grok",
-  qwen: "Qwen",
-  deepseek: "DeepSeek",
-  doubao: "Doubao",
-  glm: "GLM",
-  summary: "Summary"
+const getModelDisplayName = (model: string, language: string) => {
+  if (language === 'zh') {
+    switch (model) {
+      case 'qwen': return '通义千问';
+      case 'deepseek': return '深度求索';
+      case 'glm': return '智谱';
+      case 'doubao': return '豆包';
+      case 'openai': return 'OpenAI';
+      case 'grok': return 'Grok';
+      case 'summary': return '总结';
+      default: return model;
+    }
+  } else {
+    switch (model) {
+      case 'qwen': return 'Qwen';
+      case 'deepseek': return 'DeepSeek';
+      case 'glm': return 'GLM';
+      case 'doubao': return 'Doubao';
+      case 'openai': return 'OpenAI';
+      case 'grok': return 'Grok';
+      case 'summary': return 'Summary';
+      default: return model;
+    }
+  }
 };
+
 
 const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: ModelResponseCardProps) => {
   const { model, content, loading, error } = response;
+  const { language } = useLanguage();
   
   // State for the typing effect
   const [displayedContent, setDisplayedContent] = useState("");
@@ -132,14 +150,14 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
         <CardTitle className="text-xl flex items-center">
           <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: `var(--model-${model})` }} />
           <span className="text-gray-800">
-            {modelNames[model]}
+            {getModelDisplayName(model, language)}
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading && !isStreaming ? (
           <div className="space-y-3">
-            <WaveLoadingAnimation color={`var(--model-${model})`} text={`${modelNames[model]} is thinking...`} />
+            <WaveLoadingAnimation color={`var(--model-${model})`} text={`${getModelDisplayName(model, language)} is thinking...`} />
             <div className="space-y-3 mt-3">
               <div className="h-4 bg-gray-200 rounded animate-pulse w-[95%]"></div>
               <div className="h-4 bg-gray-200 rounded animate-pulse delay-75 w-[90%]"></div>

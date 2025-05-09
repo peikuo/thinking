@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getModelDisplayName } from '../utils/modelDisplayName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -175,7 +176,7 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                 </Avatar>
                 
                 <div className="flex-1 prose max-w-none break-words">
-                  <h4 className="mb-1 font-medium text-gray-700">{model.charAt(0).toUpperCase() + model.slice(1)}</h4>
+                  <h4 className="mb-1 font-medium text-gray-700">{getModelDisplayName(model, language)}</h4>
                   
                   {/* Show loading state */}
                   {isCurrentStep && !hasResponse && (

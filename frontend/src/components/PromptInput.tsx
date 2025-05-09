@@ -208,7 +208,17 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, loading }) => {
                       '#6366F1' 
                     }} 
                   />
-                  <span>{model}</span>
+                  <span>{
+                    language === 'zh'
+                      ? model === 'qwen' ? '通义千问'
+                        : model === 'deepseek' ? '深度求索'
+                        : model === 'glm' ? '智谱'
+                        : model === 'doubao' ? '豆包'
+                        : model === 'openai' ? 'OpenAI'
+                        : model === 'grok' ? 'Grok'
+                        : model
+                      : model.charAt(0).toUpperCase() + model.slice(1)
+                  }</span>
                 </div>
               ))}
             </div>

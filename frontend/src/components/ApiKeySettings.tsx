@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, ExternalLink } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getModelDisplayName } from '../utils/modelDisplayName';
 import { useApp } from "@/contexts/AppContext";
 import { ApiKeys } from "@/hooks/useApiKeys";
 
@@ -82,7 +83,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onSaveKeys }) => {
             <>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="openai-key">{t('openaiKey')}</Label>
+                  <Label htmlFor="openai-key">{getModelDisplayName('openai', language)} {t('openaiKey')}</Label>
                   <a href={providerUrls.openai} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 flex items-center gap-1">
                     <span>Get API Key</span>
                     <ExternalLink className="h-3 w-3" />
@@ -98,7 +99,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onSaveKeys }) => {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="grok-key">{t('grokKey')}</Label>
+                  <Label htmlFor="grok-key">{getModelDisplayName('grok', language)} {t('grokKey')}</Label>
                   <a href={providerUrls.grok} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 flex items-center gap-1">
                     <span>Get API Key</span>
                     <ExternalLink className="h-3 w-3" />
@@ -152,7 +153,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onSaveKeys }) => {
             <>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="glm-key">{t('glmKey')}</Label>
+                  <Label htmlFor="glm-key">{getModelDisplayName('glm', language)} {t('glmKey')}</Label>
                   <a href={providerUrls.glm} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 flex items-center gap-1">
                     <span>获取API密钥</span>
                     <ExternalLink className="h-3 w-3" />
@@ -168,7 +169,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onSaveKeys }) => {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="doubao-key">{t('doubaoKey')}</Label>
+                  <Label htmlFor="doubao-key">{getModelDisplayName('doubao', language)} {t('doubaoKey')}</Label>
                   <a href={providerUrls.doubao} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 flex items-center gap-1">
                     <span>获取API密钥</span>
                     <ExternalLink className="h-3 w-3" />
