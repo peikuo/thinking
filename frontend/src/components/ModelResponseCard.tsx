@@ -102,17 +102,17 @@ const ModelResponseCard = memo(({ response, streamingContent, isStreaming }: Mod
       }
       
       if (inline) {
-        return <code className="bg-gray-100 px-1 py-0.5 rounded text-sm" {...props}>{children}</code>;
+        return <code className="bg-[#282c34] text-gray-100 px-1.5 py-0.5 rounded font-mono text-sm" {...props}>{children}</code>;
       }
       return (
-        <pre className="bg-gray-100 p-4 rounded-md overflow-auto my-4">
+        <pre className="bg-[#202123] text-gray-100 font-mono p-4 rounded-lg overflow-x-auto my-4">
           <code className={className} {...props}>{children}</code>
         </pre>
       );
     },
     pre: ({ children }: any) => {
       // Special handling for pre blocks to preserve ASCII art and diagrams
-      return <div className="whitespace-pre overflow-x-auto font-mono text-sm bg-gray-100 p-4 rounded-md my-4">{children}</div>;
+      return <div className="whitespace-pre overflow-x-auto font-mono text-sm bg-[#202123] text-gray-100 p-4 rounded-lg my-4">{children}</div>;
     },
     table: ({ children }) => <div className="overflow-x-auto my-4 w-full"><table className="w-full border-collapse border-2 border-gray-300 table-auto">{children}</table></div>,
     thead: ({ children }) => <thead className="bg-gray-100">{children}</thead>,

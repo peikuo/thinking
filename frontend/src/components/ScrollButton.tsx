@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 const ScrollButton: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
+  const [hasContent, setHasContent] = useState(false);
   
   useEffect(() => {
     const handleScroll = () => {

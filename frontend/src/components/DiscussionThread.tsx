@@ -216,7 +216,10 @@ const DiscussionThread: React.FC<DiscussionThreadProps> = ({
                               return <MermaidDiagram chart={value} />;
                             }
                             
-                            return <code className={className} {...props}>{children}</code>;
+                            if (inline) {
+                              return <code className="bg-[#282c34] text-gray-100 px-1.5 py-0.5 rounded font-mono text-sm" {...props}>{children}</code>;
+                            }
+                            return <code className={`block bg-[#202123] text-gray-100 font-mono p-4 rounded-lg overflow-x-auto my-4 ${className}`} {...props}>{children}</code>;
                           }
                         }}
                       >

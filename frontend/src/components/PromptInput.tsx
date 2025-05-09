@@ -6,6 +6,7 @@ import { Send, Keyboard } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card } from "@/components/ui/card";
+import { useMode } from "@/contexts/ModeContext";
 
 interface PromptInputProps {
   onSubmit: (prompt: string, selectedModels?: string[]) => void;
@@ -20,12 +21,44 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, loading }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const { t, language } = useLanguage();
+  const { mode } = useMode();
 
   // Different models based on locale
   const availableModels = language === 'zh' 
     ? ['doubao', 'glm', 'deepseek', 'qwen']
     : ['openai', 'grok', 'qwen', 'deepseek'];
 
+  // Listen for mode changes and reset prompt
+  useEffect(() => {
+    // Reset prompt when mode changes
+    setPrompt("");
+    
+    // Also listen for the custom event for mode changes
+    const handleModeChanged = () => {
+      setPrompt("");
+    };
+    
+    window.addEventListener('thinking-mode-changed', handleModeChanged);
+    
+    return () => {
+      window.removeEventListener('thinking-mode-changed', handleModeChanged);
+    };
+  }, [mode]);
+  
+  // Listen for conversation selection events
+  useEffect(() => {
+    const handleConversationSelected = () => {
+      // Reset prompt when a conversation is selected
+      setPrompt("");
+    };
+    
+    window.addEventListener('thinking-conversation-selected', handleConversationSelected);
+    
+    return () => {
+      window.removeEventListener('thinking-conversation-selected', handleConversationSelected);
+    };
+  }, []);
+  
   // Extract selected models from the prompt
   const extractSelectedModels = (text: string): string[] => {
     const modelMentions = text.match(/@(openai|grok|qwen|deepseek|glm|doubao)\b/g);

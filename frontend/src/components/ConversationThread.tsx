@@ -1,5 +1,5 @@
 
-import React, { memo, useMemo, useRef, useEffect } from "react";
+import React, { memo, useMemo, useRef } from "react";
 import { ConversationMessage } from "@/types/models";
 import ModelResponseCard from "./ModelResponseCard";
 import ComparisonSummary from "./ComparisonSummary";
@@ -18,20 +18,7 @@ const ConversationThread = memo(({ messages }: ConversationThreadProps) => {
   const { summaryLoading, streamingContent, isStreaming } = useApp();
   const threadEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the latest message when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length]);
-
-  // Debug logging for streaming state
-  useEffect(() => {
-    if (isStreaming) {
-      console.log('ConversationThread - isStreaming:', isStreaming);
-      console.log('ConversationThread - streamingContent:', streamingContent);
-    }
-  }, [isStreaming, streamingContent]);
+  // Reference for the end of the thread (for potential future scroll functionality)
 
   // Helper function to render model responses based on layout
   const renderModelResponses = useMemo(() => {
