@@ -174,6 +174,7 @@ export function useConversations() {
     // Set this as the active conversation
     setActiveConversationId(newId);
     
+    // Return the new conversation ID for URL navigation
     return newId;
   }, []);
   

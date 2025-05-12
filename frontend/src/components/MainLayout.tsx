@@ -20,7 +20,7 @@ interface MainLayoutProps {
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
   onRenameConversation: (id: string, newTitle: string) => void;
-  onSubmitPrompt: (prompt: string) => void;
+  onSubmitPrompt: (prompt: string, selectedModels?: string[]) => void;
   clearAllConversations: () => void;
 }
 

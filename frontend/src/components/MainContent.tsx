@@ -12,7 +12,7 @@ interface MainContentProps {
   messages: ConversationMessage[];
   loading: boolean;
   sidebarOpen: boolean;
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, selectedModels?: string[]) => void;
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -47,13 +47,19 @@ const MainContent: React.FC<MainContentProps> = ({
   }, [activeConversationId, isDiscussMode]);
   
   // Handle discuss mode submit
-  const handleDiscussSubmit = (prompt: string) => {
+  const handleDiscussSubmit = (prompt: string, selectedModels?: string[]) => {
     setDiscussPrompt(prompt);
     startDiscussion(prompt, apiKeys);
   };
   
   // Choose the appropriate submit handler based on mode
-  const handleSubmit = isDiscussMode ? handleDiscussSubmit : onSubmit;
+  const handleSubmit = (prompt: string, selectedModels?: string[]) => {
+    if (isDiscussMode) {
+      handleDiscussSubmit(prompt, selectedModels);
+    } else {
+      onSubmit(prompt, selectedModels);
+    }
+  };
   
   return (
     <main className={`flex-1 py-6 relative z-10 transition-all duration-300 ${sidebarOpen ? 'md:ml-64 container' : 'container-fluid px-4 md:px-8'}`}>

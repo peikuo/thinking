@@ -37,7 +37,7 @@ interface AppContextType {
   isStreaming: boolean;
   
   // Actions
-  handleSubmitPrompt: (prompt: string) => Promise<void>;
+  handleSubmitPrompt: (prompt: string, selectedModels?: string[]) => Promise<string | undefined>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -68,7 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // Main action to handle prompt submission
   const handleSubmitPrompt = async (prompt: string, selectedModels?: string[]) => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) return undefined;
     
     // Get the active conversation to extract history before adding the new message
     const activeConversation = conversations.find(c => c.id === activeConversationId);
@@ -76,6 +76,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     // Add user message and get the conversation ID
     const conversationId = addUserMessage(prompt, selectedModels);
+    console.log('Conversation ID after adding user message:', conversationId);
     
     try {
       // Always use streaming mode by default
@@ -128,6 +129,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Remove the empty assistant message when there's an error
       removeLastAssistantMessage(conversationId);
     }
+    
+    // Return the conversation ID for URL navigation
+    return conversationId;
   };
   
   const value: AppContextType = {
